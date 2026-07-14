@@ -3,7 +3,7 @@
 import {
   ArrowLeftRight, Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
   ClipboardList, Command, FileText, Gauge, Menu, PackageSearch, Search, Settings, ShieldCheck,
-  ShoppingCart, Truck, Users, Warehouse, Wrench, X,
+  BarChart3, Banknote, CircleDollarSign, Landmark, ReceiptText, ShoppingCart, Truck, Users, WalletCards, Warehouse, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -26,6 +26,13 @@ const navigation = [
   { href: "/compras", label: "Compras", icon: ShoppingCart },
   { href: "/inventario", label: "Inventários", icon: Warehouse },
   { href: "/transferencias", label: "Transferências", icon: ArrowLeftRight },
+  { href: "/contas-receber", label: "Contas a receber", icon: ReceiptText, section: "Financeiro" },
+  { href: "/contas-pagar", label: "Contas a pagar", icon: Banknote },
+  { href: "/pagamentos", label: "Pagamentos", icon: CircleDollarSign },
+  { href: "/fluxo-caixa", label: "Fluxo de caixa", icon: Landmark },
+  { href: "/caixa", label: "Caixa", icon: WalletCards },
+  { href: "/comissoes", label: "Comissões", icon: Users },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
 ];
 
 type SearchResult = { id: string; title: string; subtitle: string; href: string };
