@@ -3,7 +3,7 @@
 import {
   ArrowLeftRight, Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
   ClipboardList, Command, FileText, Gauge, Menu, PackageSearch, Search, Settings, ShieldCheck,
-  BarChart3, Banknote, CircleDollarSign, Landmark, ReceiptText, ShoppingCart, Truck, Users, WalletCards, Warehouse, Wrench, X,
+  BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, Plug, ReceiptText, RefreshCw, ShoppingCart, Target, Truck, Users, WalletCards, Warehouse, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +33,18 @@ const navigation = [
   { href: "/caixa", label: "Caixa", icon: WalletCards },
   { href: "/comissoes", label: "Comissões", icon: Users },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  { href: "/crm", label: "CRM", icon: Target, section: "Recursos avançados" },
+  { href: "/segmentos", label: "Segmentos", icon: Users },
+  { href: "/garantias", label: "Garantias", icon: ShieldCheck },
+  { href: "/retornos-garantia", label: "Retornos", icon: RefreshCw },
+  { href: "/frotas", label: "Frotas e convênios", icon: Building2 },
+  { href: "/motoristas-frota", label: "Motoristas de frota", icon: Users },
+  { href: "/veiculos-frota", label: "Veículos de frota", icon: CarFront },
+  { href: "/modelos-mensagem", label: "Modelos de mensagem", icon: FileText },
+  { href: "/automacoes", label: "Automações", icon: Bot },
+  { href: "/portal-acessos", label: "Portal do cliente", icon: KeyRound },
+  { href: "/bi", label: "BI", icon: BarChart3 },
+  { href: "/integracoes", label: "Integrações", icon: Plug },
 ];
 
 type SearchResult = { id: string; title: string; subtitle: string; href: string };

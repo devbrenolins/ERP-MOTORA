@@ -15,12 +15,30 @@ test("todas as migrations são transacionais", async () => {
     "supabase/migrations/20260714233000_phase_four_review.sql",
     "supabase/migrations/20260714234500_phase_four_integrity_review.sql",
     "supabase/migrations/20260714235000_phase_four_workflow_review.sql",
+    "supabase/migrations/20260714240000_phase_five_advanced.sql",
+    "supabase/migrations/20260714243000_phase_five_review.sql",
   ];
   for (const file of files) {
     const sql = (await readFile(new URL(file, root), "utf8")).trim().toLowerCase();
     assert.ok(sql.startsWith("begin;"), `${file} deve iniciar uma transação`);
     assert.ok(sql.endsWith("commit;"), `${file} deve confirmar a transação`);
   }
+});
+
+test("a Fase 5 expõe CRM, garantias, frotas, automações, portal, BI e integrações", async () => {
+  const source = await readFile(new URL("lib/phase-five-modules.ts", root), "utf8");
+  for (const slug of ["segmentos", "garantias", "frotas", "motoristas-frota", "veiculos-frota", "modelos-mensagem", "automacoes", "integracoes"]) {
+    assert.match(source, new RegExp(`slug:\\s*"${slug}"`));
+  }
+  const route = await readFile(new URL("app/[module]/page.tsx", root), "utf8");
+  for (const slug of ["crm", "bi", "portal-acessos", "retornos-garantia"]) assert.match(route, new RegExp(slug));
+
+  const proxy = await readFile(new URL("proxy.ts", root), "utf8");
+  assert.match(proxy, /pathname\.startsWith\("\/portal"\)/);
+  const portal = await readFile(new URL("components/customer-portal.tsx", root), "utf8");
+  assert.match(portal, /get_customer_portal/);
+  assert.match(portal, /portal_respond_estimate/);
+  assert.doesNotMatch(portal, /SERVICE_ROLE|DB_PASSWORD|ACCESS_TOKEN/);
 });
 
 test("a Fase 4 expõe contas, pagamentos, caixa, comissões e relatórios", async () => {

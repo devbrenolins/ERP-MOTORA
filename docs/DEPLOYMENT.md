@@ -16,6 +16,10 @@
 4. Adicione a URL de produção à lista de redirect URLs do Supabase Auth.
 5. Antes de promover, valide login, onboarding, isolamento entre duas empresas e bloqueio de acesso sem permissão.
 
+## OpenAI Sites
+
+O projeto já possui `.openai/hosting.json`. Para publicar, gere `pnpm build:sites`, empacote apenas os arquivos versionados e crie uma nova versão no projeto existente. Preserve as variáveis públicas do Supabase no ambiente hospedado e nunca inclua `.env.local` no pacote.
+
 ## Checklist de segurança
 
 - RLS ativa em toda tabela exposta pela API.

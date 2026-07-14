@@ -16,6 +16,8 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   const [relations, setRelations] = useState<RelationLabels>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [runningAction, setRunningAction] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,11 +90,11 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
       for (const field of config.fields) values[field.name] = serializeValue(form[field.name] ?? "", field);
       if (typeof values.tax_id === "string") values.tax_id = values.tax_id.replace(/\D/g, "") || null;
       if (typeof values.license_plate === "string") values.license_plate = values.license_plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      const scope = { organization_id: context.organizationId, [config.branchColumn]: context.branchId, updated_by: context.userId };
       if (editing) {
-        const { error: saveError } = await supabase.from(config.table).update({ ...values, ...scope }).eq("id", String(editing.id));
+        const { error: saveError } = await supabase.from(config.table).update({ ...values, updated_by: context.userId }).eq("id", String(editing.id));
         if (saveError) throw saveError;
       } else {
+        const scope = { organization_id: context.organizationId, ...(config.branchColumn ? { [config.branchColumn]: context.branchId } : {}), updated_by: context.userId };
         const { error: saveError } = await supabase.from(config.table).insert({ ...values, ...scope, created_by: context.userId });
         if (saveError) throw saveError;
       }
@@ -121,14 +123,28 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível alterar o status."); }
   };
 
+  const runModuleAction = async () => {
+    if (!context || !config.action || (config.action.confirm && !window.confirm(config.action.confirm))) return;
+    setRunningAction(true); setError(null); setNotice(null);
+    try {
+      const supabase = createClient();
+      const { data, error: actionError } = await supabase.rpc(config.action.rpc, { p_branch_id: context.branchId });
+      if (actionError) throw actionError;
+      setNotice(typeof data === "number" ? `${data} tarefa${data === 1 ? "" : "s"} adicionada${data === 1 ? "" : "s"} à fila.` : "Operação concluída com sucesso.");
+      await load();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível executar a ação."); }
+    finally { setRunningAction(false); }
+  };
+
   return (
     <main className="mx-auto max-w-[1520px] px-4 py-5 lg:px-7 lg:py-6">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">{config.phaseLabel ?? "Fase 2 • Operação principal"}</p><h1 className="text-2xl font-bold tracking-[-.025em]">{config.title}</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">{config.subtitle}</p></div>
-        <button onClick={openNew} className="inline-flex h-10 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white hover:bg-[var(--brand-strong)]"><Plus size={17} />Novo {config.singular}</button>
+        <div className="flex flex-wrap gap-2">{config.action && <button disabled={runningAction} onClick={() => void runModuleAction()} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--brand)] px-4 text-sm font-bold text-[var(--brand)] disabled:opacity-50"><RefreshCw size={16} className={runningAction ? "animate-spin" : ""} />{config.action.label}</button>}<button onClick={openNew} className="inline-flex h-10 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white hover:bg-[var(--brand-strong)]"><Plus size={17} />Novo {config.singular}</button></div>
       </div>
 
       {error && <div className="mb-4 flex items-start justify-between gap-4 border border-[#e9b3ad] bg-[#fff3f1] px-4 py-3 text-xs text-[var(--danger)]" role="alert"><span>{error}</span><button onClick={() => setError(null)} aria-label="Fechar mensagem"><X size={15} /></button></div>}
+      {notice && <div className="mb-4 flex items-start justify-between gap-4 border border-[#a9d8cf] bg-[var(--brand-soft)] px-4 py-3 text-xs text-[var(--brand)]" role="status"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Fechar mensagem"><X size={15} /></button></div>}
 
       <section className="border border-[var(--line)] bg-[var(--surface)]">
         <div className="flex flex-col gap-3 border-b border-[var(--line)] p-3 sm:flex-row sm:items-center">
@@ -164,7 +180,7 @@ function Kanban({ config, rows, relations, onEdit, onStatus }: { config: ModuleC
 
 function Field({ field, value, options, onChange }: { field: FieldConfig; value: string; options: Record<string, string>; onChange: (value: string) => void }) {
   const className = "mt-2 h-10 w-full border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-  return <label className={`text-xs font-bold ${field.wide ? "sm:col-span-2" : ""}`}>{field.label}{field.required && <span className="ml-1 text-[var(--danger)]">*</span>}{field.type === "textarea" ? <textarea required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={`${className} h-24 py-2`} placeholder={field.placeholder} /> : field.type === "select" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : field.type === "relation" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{Object.entries(options).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select> : <input required={field.required} type={field.type === "datetime" ? "datetime-local" : field.type} value={value} onChange={(event) => onChange(event.target.value)} className={className} placeholder={field.placeholder} />}</label>;
+  return <label className={`text-xs font-bold ${field.wide ? "sm:col-span-2" : ""}`}>{field.type === "checkbox" ? <span className="flex h-10 items-center gap-3 border border-[var(--line-strong)] px-3"><input type="checkbox" checked={value === "true"} onChange={(event) => onChange(String(event.target.checked))} className="size-4 accent-[var(--brand)]" />{field.label}</span> : <>{field.label}{field.required && <span className="ml-1 text-[var(--danger)]">*</span>}{field.type === "textarea" ? <textarea required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={`${className} h-24 py-2`} placeholder={field.placeholder} /> : field.type === "select" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : field.type === "relation" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{Object.entries(options).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select> : <input required={field.required} type={field.type === "datetime" ? "datetime-local" : field.type} value={value} onChange={(event) => onChange(event.target.value)} className={className} placeholder={field.placeholder} />}</>}</label>;
 }
 
 function EmptyState({ singular }: { singular: string }) { return <div className="grid min-h-72 place-items-center px-5 py-10 text-center"><div><div className="mx-auto grid size-10 place-items-center rounded-full bg-[var(--surface-muted)] text-[var(--ink-muted)]"><Plus size={18} /></div><h3 className="mt-3 text-sm font-bold">Nenhum {singular} cadastrado</h3><p className="mt-1 text-xs text-[var(--ink-muted)]">Use a ação principal para criar o primeiro registro.</p></div></div>; }
@@ -172,6 +188,6 @@ function StatusBadge({ value }: { value: string }) { return <span className="inl
 
 function initialForm(config: ModuleConfig) { return Object.fromEntries(config.fields.map((field) => [field.name, String(field.defaultValue ?? "")])); }
 function inputValue(value: unknown, field: FieldConfig) { if (value == null) return ""; if (field.type === "datetime") return new Date(String(value)).toISOString().slice(0, 16); return String(value); }
-function serializeValue(value: string, field: FieldConfig): unknown { if (value === "") return null; if (field.type === "number") return Number(value); if (field.type === "datetime") return new Date(value).toISOString(); return value; }
+function serializeValue(value: string, field: FieldConfig): unknown { if (field.type === "checkbox") return value === "true"; if (value === "") return null; if (field.type === "number") return Number(value); if (field.type === "datetime") return new Date(value).toISOString(); return value; }
 function formatValue(value: unknown, format?: string, relation?: Record<string, string>) { if (value == null || value === "") return "—"; if (format === "relation") return relation?.[String(value)] ?? "—"; if (format === "currency") return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value)); if (format === "date") return new Intl.DateTimeFormat("pt-BR").format(new Date(String(value))); if (format === "datetime") return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(String(value))); if (format === "status") return <StatusBadge value={String(value)} />; return String(value); }
 function statusLabel(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }

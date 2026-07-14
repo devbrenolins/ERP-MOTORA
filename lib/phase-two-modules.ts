@@ -1,4 +1,4 @@
-export type FieldType = "text" | "textarea" | "number" | "date" | "datetime" | "select" | "relation";
+export type FieldType = "text" | "textarea" | "number" | "date" | "datetime" | "select" | "relation" | "checkbox";
 
 export type FieldConfig = {
   name: string;
@@ -20,13 +20,14 @@ export type ModuleConfig = {
   title: string;
   subtitle: string;
   singular: string;
-  branchColumn: "branch_id" | "primary_branch_id";
+  branchColumn: "branch_id" | "primary_branch_id" | null;
   fields: FieldConfig[];
   columns: ColumnConfig[];
   defaults?: Record<string, unknown>;
   fixedFilters?: Record<string, string>;
   view?: "table" | "kanban";
   phaseLabel?: string;
+  action?: { label: string; rpc: string; confirm?: string };
 };
 
 const status = (values: Array<[string, string]>) => values.map(([value, label]) => ({ value, label }));
