@@ -1,5 +1,7 @@
 # Motora ERP
 
+> Toda fase segue o [protocolo obrigatório de revisão](docs/PHASE_REVIEW_PROTOCOL.md): revisão regressiva, zero defeito conhecido e continuidade para a fase seguinte.
+
 Fundação de um ERP SaaS multiempresa e multifilial para oficinas automotivas, construído com Next.js, TypeScript, React, Tailwind CSS e Supabase.
 
 ## Estado atual

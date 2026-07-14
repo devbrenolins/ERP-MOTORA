@@ -26,6 +26,7 @@ export type ModuleConfig = {
   defaults?: Record<string, unknown>;
   fixedFilters?: Record<string, string>;
   view?: "table" | "kanban";
+  phaseLabel?: string;
 };
 
 const status = (values: Array<[string, string]>) => values.map(([value, label]) => ({ value, label }));

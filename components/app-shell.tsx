@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
-  ClipboardList, Command, FileText, Gauge, Menu, Search, Settings, ShieldCheck,
-  Users, Wrench, X,
+  ArrowLeftRight, Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
+  ClipboardList, Command, FileText, Gauge, Menu, PackageSearch, Search, Settings, ShieldCheck,
+  ShoppingCart, Truck, Users, Warehouse, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,7 +20,12 @@ const navigation = [
   { href: "/inspecoes", label: "Inspeções", icon: ShieldCheck },
   { href: "/orcamentos", label: "Orçamentos", icon: FileText },
   { href: "/ordens", label: "Ordens de serviço", icon: Wrench },
-  { href: "/estoque", label: "Estoque", icon: Boxes, disabled: true },
+  { href: "/produtos", label: "Produtos e peças", icon: PackageSearch, section: "Suprimentos" },
+  { href: "/estoque", label: "Estoque", icon: Boxes },
+  { href: "/fornecedores", label: "Fornecedores", icon: Truck },
+  { href: "/compras", label: "Compras", icon: ShoppingCart },
+  { href: "/inventario", label: "Inventários", icon: Warehouse },
+  { href: "/transferencias", label: "Transferências", icon: ArrowLeftRight },
 ];
 
 type SearchResult = { id: string; title: string; subtitle: string; href: string };
@@ -56,15 +61,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       const { data: profile } = await supabase.from("profiles").select("last_organization_id").eq("id", user.id).single();
       if (!profile?.last_organization_id) return;
       const org = profile.last_organization_id;
-      const [customers, vehicles, orders] = await Promise.all([
+      const [customers, vehicles, orders, products] = await Promise.all([
         supabase.from("customers").select("id,name,primary_phone").eq("organization_id", org).is("deleted_at", null).ilike("name", `%${term}%`).limit(5),
         supabase.from("vehicles").select("id,license_plate,brand,model").eq("organization_id", org).is("deleted_at", null).or(`license_plate.ilike.%${term}%,model.ilike.%${term}%`).limit(5),
         supabase.from("work_orders").select("id,number,customer_complaint").eq("organization_id", org).is("deleted_at", null).or(`number.ilike.%${term}%,customer_complaint.ilike.%${term}%`).limit(5),
+        supabase.from("products").select("id,sku,name").eq("organization_id", org).is("deleted_at", null).or(`sku.ilike.%${term}%,name.ilike.%${term}%`).limit(5),
       ]);
       setResults([
         ...(customers.data ?? []).map((item) => ({ id: item.id, title: item.name, subtitle: item.primary_phone ?? "Cliente", href: "/clientes" })),
         ...(vehicles.data ?? []).map((item) => ({ id: item.id, title: item.license_plate, subtitle: `${item.brand} ${item.model}`, href: "/veiculos" })),
         ...(orders.data ?? []).map((item) => ({ id: item.id, title: `OS ${item.number}`, subtitle: item.customer_complaint, href: "/ordens" })),
+        ...(products.data ?? []).map((item) => ({ id: item.id, title: item.name, subtitle: `Produto • ${item.sku}`, href: "/produtos" })),
       ]);
     } catch { setResults([]); } finally { setSearching(false); }
   };
@@ -81,12 +88,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-3 mt-3 border border-white/10 bg-white/[.04] px-3 py-2.5">
           <div className="flex items-center gap-2"><Building2 size={16} className="text-[#74c4b7]" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">Empresa ativa</span><span className="block truncate text-[11px] text-[var(--sidebar-muted)]">Filial selecionada no perfil</span></span><ChevronDown size={14} /></div>
         </div>
-        <nav aria-label="Módulos principais" className="mt-3 space-y-0.5 px-3">
+        <nav aria-label="Módulos principais" className="mt-3 max-h-[calc(100vh-190px)] space-y-0.5 overflow-y-auto px-3 pb-28">
           <p className="px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[.14em] text-[var(--sidebar-muted)]">Operação</p>
           {navigation.map((item) => {
             const Icon = item.icon; const active = pathname === item.href;
-            if (item.disabled) return <span key={item.href} className="flex h-9 items-center gap-3 px-3 text-[13px] text-[#64736f]"><Icon size={16} />{item.label}<span className="ml-auto text-[9px] uppercase">Fase 3</span></span>;
-            return <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} className={`flex h-9 items-center gap-3 px-3 text-[13px] font-medium transition ${active ? "bg-white/10 text-white" : "text-[#c3cfcc] hover:bg-white/[.06] hover:text-white"}`} aria-current={active ? "page" : undefined}><Icon size={16} />{item.label}</Link>;
+            return <span key={item.href} className="contents">{item.section && <span className="mt-4 block px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[.14em] text-[var(--sidebar-muted)]">{item.section}</span>}<Link href={item.href} onClick={() => setSidebarOpen(false)} className={`flex h-9 items-center gap-3 px-3 text-[13px] font-medium transition ${active ? "bg-white/10 text-white" : "text-[#c3cfcc] hover:bg-white/[.06] hover:text-white"}`} aria-current={active ? "page" : undefined}><Icon size={16} />{item.label}</Link></span>;
           })}
         </nav>
         <div className="absolute inset-x-3 bottom-3 border-t border-white/10 pt-3">

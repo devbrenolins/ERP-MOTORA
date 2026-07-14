@@ -124,7 +124,7 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   return (
     <main className="mx-auto max-w-[1520px] px-4 py-5 lg:px-7 lg:py-6">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">Fase 2 • Operação principal</p><h1 className="text-2xl font-bold tracking-[-.025em]">{config.title}</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">{config.subtitle}</p></div>
+        <div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">{config.phaseLabel ?? "Fase 2 • Operação principal"}</p><h1 className="text-2xl font-bold tracking-[-.025em]">{config.title}</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">{config.subtitle}</p></div>
         <button onClick={openNew} className="inline-flex h-10 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white hover:bg-[var(--brand-strong)]"><Plus size={17} />Novo {config.singular}</button>
       </div>
 
