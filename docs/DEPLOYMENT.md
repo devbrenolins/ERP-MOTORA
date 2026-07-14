@@ -2,7 +2,7 @@
 
 ## Supabase
 
-1. Crie um projeto e aplique, na ordem, os arquivos de `supabase/migrations`.
+1. Crie um projeto e aplique, na ordem, todos os arquivos de `supabase/migrations`; a segunda migration depende integralmente da fundação.
 2. Em Authentication, habilite e-mail/senha e configure a URL do site.
 3. Use apenas buckets privados para documentos operacionais; URLs devem ser assinadas no servidor.
 4. Preencha as variáveis descritas em `.env.example`. A service role nunca pode usar o prefixo `NEXT_PUBLIC_`.

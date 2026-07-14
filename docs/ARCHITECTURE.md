@@ -101,7 +101,7 @@ Cada migration inclui índices, constraints, RLS e testes de isolamento correspo
 ## 7. Etapas de desenvolvimento
 
 - Fase 1: concluir sessão, convites, troca de empresa/filial, telas de RBAC e consulta de auditoria.
-- Fase 2: entregar o fluxo ponta a ponta cliente -> veículo -> check-in -> orçamento -> OS.
+- Fase 2: implementada a base ponta a ponta cliente -> veículo -> check-in -> inspeção -> orçamento -> OS, com os fluxos detalhados evoluindo de forma incremental.
 - Fase 3: ligar reserva e baixa de estoque aos eventos configurados da OS.
 - Fase 4: gerar contas e movimentos financeiros pela origem, com estorno rastreável.
 - Fase 5: portal, CRM, garantias, frotas, BI e adaptadores externos.

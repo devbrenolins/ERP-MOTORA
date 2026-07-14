@@ -14,10 +14,22 @@ A Fase 1 iniciou com:
 - clientes Supabase para browser e servidor;
 - documentação de arquitetura e implantação.
 
+A Fase 2 acrescenta:
+
+- central de atendimento;
+- clientes e veículos com edição e arquivamento seguro;
+- agenda por filial;
+- recepção e check-in com quilometragem, combustível e avarias;
+- inspeções configuráveis;
+- orçamentos versionáveis com itens e totais no banco;
+- ordens de serviço em tabela e Kanban;
+- numeração transacional, histórico de status e conversão de orçamento em OS;
+- RLS e permissões para todos os novos módulos.
+
 ## Desenvolvimento
 
 1. Copie `.env.example` para `.env.local` e informe as chaves do Supabase.
-2. Aplique `supabase/migrations/20260714170000_foundation.sql`.
+2. Aplique, em ordem, as migrations em `supabase/migrations`.
 3. Instale as dependências com `pnpm install`.
 4. Execute `pnpm dev`.
 

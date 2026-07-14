@@ -27,9 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Motora ERP",
       description: "Gestão profissional para oficinas automotivas.",
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1672, height: 941, alt: "Motora ERP - Gestão profissional para oficinas automotivas" }],
+      images: [{ url: `${origin}/og-phase2.png`, width: 1672, height: 941, alt: "Motora ERP - Fase 2, operação principal" }],
     },
-    twitter: { card: "summary_large_image", title: "Motora ERP", description: "Gestão profissional para oficinas automotivas.", images: [`${origin}/og.png`] },
+    twitter: { card: "summary_large_image", title: "Motora ERP", description: "Gestão profissional para oficinas automotivas.", images: [`${origin}/og-phase2.png`] },
   };
 }
 
