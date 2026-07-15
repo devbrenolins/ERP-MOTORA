@@ -3,12 +3,13 @@
 import {
   ArrowLeftRight, Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
   ClipboardList, Command, FileText, Gauge, Menu, PackageSearch, Search, Settings, ShieldCheck,
-  BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, Plug, ReceiptText, RefreshCw, ShoppingCart, Target, Truck, Users, WalletCards, Warehouse, Wrench, X,
+  Activity, BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, Plug, ReceiptText, RefreshCw, ShoppingCart, SlidersHorizontal, Target, Truck, UserRoundCheck, Users, WalletCards, Warehouse, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { NotificationCenter } from "@/components/notification-center";
 
 const navigation = [
   { href: "/", label: "Visão geral", icon: Gauge },
@@ -45,6 +46,10 @@ const navigation = [
   { href: "/portal-acessos", label: "Portal do cliente", icon: KeyRound },
   { href: "/bi", label: "BI", icon: BarChart3 },
   { href: "/integracoes", label: "Integrações", icon: Plug },
+  { href: "/notificacoes", label: "Notificações", icon: Bell, section: "Administração" },
+  { href: "/auditoria", label: "Auditoria", icon: Activity },
+  { href: "/privacidade", label: "Privacidade e LGPD", icon: UserRoundCheck },
+  { href: "/configuracoes", label: "Configurações", icon: SlidersHorizontal },
 ];
 
 type SearchResult = { id: string; title: string; subtitle: string; href: string };
@@ -115,7 +120,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="absolute inset-x-3 bottom-3 border-t border-white/10 pt-3">
-          <Link href="/onboarding" className="flex h-9 items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><Settings size={16} />Configurações</Link>
+          <Link href="/configuracoes" className="flex h-9 items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><Settings size={16} />Configurações</Link>
           <div className="mt-2 flex items-center gap-3 px-3 py-2"><div className="grid size-8 place-items-center rounded-full bg-[#344440] text-xs font-bold">AD</div><div><p className="text-xs font-semibold">Administrador</p><p className="text-[11px] text-[var(--sidebar-muted)]">Sessão protegida</p></div></div>
         </div>
       </aside>
@@ -128,7 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-1.5">
             <button onClick={() => setSearchOpen(true)} className="hidden h-9 min-w-64 items-center gap-2 border border-[var(--line)] bg-[var(--surface-muted)] px-3 text-left text-xs text-[var(--ink-muted)] md:flex"><Search size={15} /><span className="flex-1">Buscar cliente, placa ou OS</span><kbd className="flex items-center gap-0.5 border border-[var(--line)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px]"><Command size={10} />K</kbd></button>
             <button onClick={() => setSearchOpen(true)} className="grid size-9 place-items-center md:hidden" aria-label="Pesquisar"><Search size={18} /></button>
-            <button className="relative grid size-9 place-items-center text-[var(--ink-muted)]" aria-label="Notificações"><Bell size={18} /></button>
+            <NotificationCenter />
           </div>
         </header>
         {children}

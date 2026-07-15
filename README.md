@@ -40,6 +40,9 @@ A Fase 5 acrescenta:
 - painéis de BI operacional, comercial, financeiro e de estoque;
 - cadastro e trilha de eventos de integrações sem expor credenciais ao navegador;
 - RLS, escopo multiempresa/multifilial, auditoria e revisão regressiva das cinco fases.
+- central de notificações operacionais, recuperação de senha e administração de configurações;
+- exportação e anonimização LGPD com bloqueios transacionais e trilha de auditoria;
+- seed separado para demonstração e checklist final de implantação.
 
 ## Desenvolvimento
 
@@ -49,3 +52,4 @@ A Fase 5 acrescenta:
 4. Execute `pnpm dev`.
 
 Consulte [a arquitetura](docs/ARCHITECTURE.md) e [a implantação](docs/DEPLOYMENT.md) antes de ampliar os módulos.
+Use também o [checklist de entrega](docs/DELIVERY_CHECKLIST.md) para produção, demonstração, segurança, permissões e integrações pendentes.

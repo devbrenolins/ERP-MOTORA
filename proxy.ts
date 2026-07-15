@@ -21,9 +21,9 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const isPortalPage = request.nextUrl.pathname.startsWith("/portal");
   if (isPortalPage) return response;
-  const isAuthPage = request.nextUrl.pathname.startsWith("/login");
+  const isAuthPage = ["/login", "/recover-password", "/reset-password"].some((path) => request.nextUrl.pathname.startsWith(path));
   if (!user && !isAuthPage) return NextResponse.redirect(new URL("/login", request.url));
-  if (user && isAuthPage) return NextResponse.redirect(new URL("/", request.url));
+  if (user && request.nextUrl.pathname.startsWith("/login")) return NextResponse.redirect(new URL("/", request.url));
   return response;
 }
 
