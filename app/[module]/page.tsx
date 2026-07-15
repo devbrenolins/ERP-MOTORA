@@ -20,11 +20,6 @@ import { phaseFourModules } from "@/lib/phase-four-modules";
 import { phaseFiveModules } from "@/lib/phase-five-modules";
 
 const modules = { ...phaseTwoModules, ...phaseThreeModules, ...phaseFourModules, ...phaseFiveModules };
-const specialModules = ["estoque", "pagamentos", "fluxo-caixa", "caixa", "relatorios", "crm", "bi", "portal-acessos", "retornos-garantia", "notificacoes", "auditoria", "configuracoes", "privacidade", "perfis"];
-
-export function generateStaticParams() {
-  return [...Object.keys(modules), ...specialModules].map((module) => ({ module }));
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ module: string }> }): Promise<Metadata> {
   const { module } = await params;
