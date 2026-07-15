@@ -31,7 +31,7 @@ test("todas as migrations são transacionais", async () => {
 });
 
 test("a conclusão da Fase 5 cobre administração, recuperação e LGPD", async () => {
-  const route = await readFile(new URL("app/[module]/page.tsx", root), "utf8");
+  const route = await readFile(new URL("components/module-route.tsx", root), "utf8");
   for (const slug of ["notificacoes", "auditoria", "configuracoes", "privacidade"]) assert.match(route, new RegExp(slug));
   const proxy = await readFile(new URL("proxy.ts", root), "utf8");
   assert.match(proxy, /recover-password/);
@@ -46,6 +46,10 @@ test("a conclusão da Fase 5 cobre administração, recuperação e LGPD", async
   assert.match(roles, /'Superadmin'/);
   const rolesModule = await readFile(new URL("components/roles-module.tsx", root), "utf8");
   assert.match(rolesModule, /Pode elevar cargos/);
+  for (const slug of ["clientes", "estoque", "contas-receber", "automacoes", "perfis", "configuracoes"]) {
+    const explicitRoute = await readFile(new URL(`app/${slug}/page.tsx`, root), "utf8");
+    assert.match(explicitRoute, new RegExp(`module=\\"${slug}\\"`));
+  }
   const shell = await readFile(new URL("components/app-shell.tsx", root), "utf8");
   assert.match(shell, /auth\.signOut/);
 
@@ -69,7 +73,7 @@ test("a Fase 5 expõe CRM, garantias, frotas, automações, portal, BI e integra
   for (const slug of ["segmentos", "garantias", "frotas", "motoristas-frota", "veiculos-frota", "modelos-mensagem", "automacoes", "integracoes"]) {
     assert.match(source, new RegExp(`slug:\\s*"${slug}"`));
   }
-  const route = await readFile(new URL("app/[module]/page.tsx", root), "utf8");
+  const route = await readFile(new URL("components/module-route.tsx", root), "utf8");
   for (const slug of ["crm", "bi", "portal-acessos", "retornos-garantia"]) assert.match(route, new RegExp(slug));
 
   const proxy = await readFile(new URL("proxy.ts", root), "utf8");
@@ -83,7 +87,7 @@ test("a Fase 5 expõe CRM, garantias, frotas, automações, portal, BI e integra
 test("a Fase 4 expõe contas, pagamentos, caixa, comissões e relatórios", async () => {
   const source = await readFile(new URL("lib/phase-four-modules.ts", root), "utf8");
   for (const slug of ["contas-receber", "contas-pagar", "comissoes"]) assert.match(source, new RegExp(slug));
-  const route = await readFile(new URL("app/[module]/page.tsx", root), "utf8");
+  const route = await readFile(new URL("components/module-route.tsx", root), "utf8");
   for (const slug of ["pagamentos", "fluxo-caixa", "caixa", "relatorios"]) assert.match(route, new RegExp(slug));
 });
 
@@ -92,7 +96,7 @@ test("a Fase 3 expõe todos os módulos previstos", async () => {
   for (const slug of ["produtos", "fornecedores", "compras", "inventario", "transferencias"]) {
     assert.match(source, new RegExp(`\\b${slug}:`));
   }
-  const route = await readFile(new URL("app/[module]/page.tsx", root), "utf8");
+  const route = await readFile(new URL("components/module-route.tsx", root), "utf8");
   assert.match(route, /module === "estoque"/);
 });
 
