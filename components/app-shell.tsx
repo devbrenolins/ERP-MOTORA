@@ -3,7 +3,7 @@
 import {
   ArrowLeftRight, Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
   ClipboardList, Command, FileText, Gauge, Menu, PackageSearch, Search, Settings, ShieldCheck,
-  Activity, BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, LogOut, Plug, ReceiptText, RefreshCw, ShoppingCart, SlidersHorizontal, Target, Truck, UserRoundCheck, Users, WalletCards, Warehouse, Wrench, X,
+  Activity, BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, LogOut, Plug, ReceiptText, RefreshCw, ShoppingCart, SlidersHorizontal, Table2, Target, Truck, UserRoundCheck, Users, WalletCards, Warehouse, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -14,6 +14,7 @@ import { NotificationCenter } from "@/components/notification-center";
 const navigation = [
   { href: "/", label: "Visão geral", icon: Gauge },
   { href: "/atendimento", label: "Atendimento", icon: ClipboardList },
+  { href: "/painel-oficina", label: "Painel da oficina", icon: Table2 },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/veiculos", label: "Veículos", icon: CarFront },

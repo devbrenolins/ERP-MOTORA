@@ -16,6 +16,14 @@
   --success: #087a62;
   --sidebar: #172321;
   --sidebar-muted: #93a29f;
+  --row-blue: #e8f1fb; --row-blue-strong: #1d6fc2;
+  --row-yellow: #fdf6da; --row-yellow-strong: #a87b0a;
+  --row-orange: #fdecda; --row-orange-strong: #c25e0e;
+  --row-purple: #f1e9fb; --row-purple-strong: #7a3fc0;
+  --row-green: #e2f4ea; --row-green-strong: #0e7d4f;
+  --row-dark: #e6e8e8; --row-dark-strong: #313a39;
+  --row-red: #fde5e2; --row-red-strong: #c0281a;
+  --row-gray: #f0f1f1; --row-gray-strong: #79837f;
 }
 
 @utility field {
@@ -47,6 +55,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 ::selection { background: #b9dbd5; }
 
+@media print {
+  body:has(.print-overlay) > *:not(.print-overlay) { display: none !important; }
+  .print-overlay { position: static !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
+  .print-overlay > div { max-width: none !important; margin: 0 !important; }
+  .print-hidden { display: none !important; }
+  .print-area { box-shadow: none !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
 @media (max-width: 639px) {
   input, select, textarea { font-size: 16px; }
   button, [role="button"] { touch-action: manipulation; }
@@ -67,5 +83,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     --brand-strong: #66c6b8;
     --brand-soft: #173b35;
     --sidebar: #0a100f;
+    --row-blue: #14232f; --row-blue-strong: #5da4e8;
+    --row-yellow: #292314; --row-yellow-strong: #d9ac4a;
+    --row-orange: #2b2014; --row-orange-strong: #e08a45;
+    --row-purple: #251d31; --row-purple-strong: #b088e0;
+    --row-green: #15281f; --row-green-strong: #4fbd8a;
+    --row-dark: #232a29; --row-dark-strong: #c1cbc9;
+    --row-red: #2e1815; --row-red-strong: #e5786a;
+    --row-gray: #1e2423; --row-gray-strong: #8d9995;
   }
 }

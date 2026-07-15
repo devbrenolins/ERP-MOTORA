@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/client";
 
 const modules = [
+  { href: "/painel-oficina", label: "Painel da oficina", description: "Quadro em tempo real por status", icon: Wrench },
   { href: "/clientes", label: "Clientes", description: "Cadastro e relacionamento", icon: Users },
   { href: "/veiculos", label: "Veículos", description: "Histórico e quilometragem", icon: CarFront },
   { href: "/agenda", label: "Agenda", description: "Compromissos da oficina", icon: CalendarDays },

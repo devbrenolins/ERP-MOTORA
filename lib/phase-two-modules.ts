@@ -14,6 +14,8 @@ export type FieldConfig = {
 
 export type ColumnConfig = { key: string; label: string; format?: "date" | "datetime" | "currency" | "status" | "relation" };
 
+export type ItemsConfig = { table: "estimate_items" | "work_order_items"; foreignKey: "estimate_id" | "work_order_id" };
+
 export type ModuleConfig = {
   slug: string;
   table: string;
@@ -28,6 +30,9 @@ export type ModuleConfig = {
   view?: "table" | "kanban";
   phaseLabel?: string;
   action?: { label: string; rpc: string; confirm?: string };
+  items?: ItemsConfig;
+  print?: "estimate" | "work_order";
+  convertToWorkOrder?: boolean;
 };
 
 const status = (values: Array<[string, string]>) => values.map(([value, label]) => ({ value, label }));
@@ -123,7 +128,8 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
     columns: [{ key: "vehicle_id", label: "Veículo", format: "relation" }, { key: "customer_id", label: "Cliente", format: "relation" }, { key: "template_id", label: "Checklist", format: "relation" }, { key: "mileage", label: "Km" }, { key: "status", label: "Status", format: "status" }, { key: "created_at", label: "Criada em", format: "date" }],
   },
   orcamentos: {
-    slug: "orcamentos", table: "estimates", title: "Orçamentos", subtitle: "Crie orçamentos e acompanhe a resposta do cliente.", singular: "orçamento", branchColumn: "branch_id", defaults: { number: "" },
+    slug: "orcamentos", table: "estimates", title: "Orçamentos", subtitle: "Crie orçamentos, informe os valores e acompanhe a resposta do cliente.", singular: "orçamento", branchColumn: "branch_id", defaults: { number: "" },
+    items: { table: "estimate_items", foreignKey: "estimate_id" }, print: "estimate", convertToWorkOrder: true,
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation, required: true },
       { name: "vehicle_id", label: "Veículo", type: "relation", relation: vehicleRelation, required: true },
@@ -138,6 +144,7 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
   },
   ordens: {
     slug: "ordens", table: "work_orders", title: "Ordens de serviço", subtitle: "Acompanhe cada serviço desde a entrada até a entrega.", singular: "ordem de serviço", branchColumn: "branch_id", view: "kanban", defaults: { number: "" },
+    items: { table: "work_order_items", foreignKey: "work_order_id" }, print: "work_order",
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation, required: true },
       { name: "vehicle_id", label: "Veículo", type: "relation", relation: vehicleRelation, required: true },

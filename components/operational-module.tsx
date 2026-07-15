@@ -1,10 +1,12 @@
 "use client";
 
-import { Archive, Check, ChevronDown, ChevronLeft, ChevronRight, Edit3, LoaderCircle, Plus, RefreshCw, Search, UserPlus, X } from "lucide-react";
+import { Archive, Check, ChevronDown, ChevronLeft, ChevronRight, Edit3, FileOutput, LoaderCircle, Plus, Printer, RefreshCw, Search, UserPlus, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { FieldConfig, ModuleConfig } from "@/lib/phase-two-modules";
 import { SmartRelationPicker } from "@/components/smart-relation-picker";
+import { ItemsEditor } from "@/components/items-editor";
+import { DocumentPrint } from "@/components/document-print";
 
 type Row = Record<string, unknown>;
 type Context = { organizationId: string; branchId: string; userId: string };
@@ -28,6 +30,8 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   const [form, setForm] = useState<Record<string, string>>(initialForm(config));
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const [printing, setPrinting] = useState<Row | null>(null);
+  const [converting, setConverting] = useState(false);
   const contextCache = useRef<Context | null>(null);
   const relationsCache = useRef<RelationLabels | null>(null);
 
@@ -110,7 +114,9 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
     setSaving(true); setError(null);
     try {
       const supabase = createClient();
-      const values: Record<string, unknown> = { ...(config.defaults ?? {}) };
+      // Os defaults (ex.: number vazio para o gatilho numerar) valem apenas na criação;
+      // aplicá-los na edição sobrescreveria o número e o status já persistidos.
+      const values: Record<string, unknown> = editing ? {} : { ...(config.defaults ?? {}) };
       for (const field of config.fields) {
         const rawValue = form[field.name] ?? "";
         if (field.required && rawValue === "") throw new Error(`Preencha o campo ${field.label.toLocaleLowerCase("pt-BR")}.`);
@@ -151,6 +157,32 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível alterar o status."); }
   };
 
+  // Transforma um orçamento em ordem de serviço usando a rotina segura do banco.
+  // Itens ainda pendentes são aprovados junto com o orçamento antes da conversão.
+  const convertToOrder = async (row: Row) => {
+    if (!context || converting) return;
+    if (!window.confirm(`Gerar uma ordem de serviço a partir do orçamento ${String(row.number ?? "")}? Os itens pendentes serão marcados como aprovados.`)) return;
+    setConverting(true); setError(null); setNotice(null);
+    try {
+      const supabase = createClient();
+      const estimateId = String(row.id);
+      const { error: itemsError } = await supabase.from("estimate_items").update({ approval_status: "approved" }).eq("estimate_id", estimateId).eq("approval_status", "pending");
+      if (itemsError) throw itemsError;
+      if (!["approved", "partially_approved"].includes(String(row.status))) {
+        const { error: approveError } = await supabase.from("estimates").update({ status: "approved", approved_at: new Date().toISOString(), updated_by: context.userId }).eq("id", estimateId);
+        if (approveError) throw approveError;
+      }
+      const { data: orderId, error: convertError } = await supabase.rpc("convert_estimate_to_work_order", { p_estimate_id: estimateId });
+      if (convertError) throw convertError;
+      const { data: order } = await supabase.from("work_orders").select("number").eq("id", String(orderId)).single();
+      setNotice(`Ordem de serviço ${order?.number ?? "criada"} gerada a partir do orçamento ${String(row.number ?? "")}. Acompanhe em Ordens de serviço ou no Painel da oficina.`);
+      await load();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Não foi possível gerar a ordem de serviço.";
+      setError(message.includes("estimate_not_approved") ? "O orçamento precisa estar aprovado para virar OS." : message);
+    } finally { setConverting(false); }
+  };
+
   const runModuleAction = async () => {
     if (!context || !config.action || (config.action.confirm && !window.confirm(config.action.confirm))) return;
     setRunningAction(true); setError(null); setNotice(null);
@@ -180,30 +212,34 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
           <button onClick={() => void load()} className="inline-flex h-9 items-center justify-center gap-2 border border-[var(--line)] px-3 text-xs font-semibold"><RefreshCw size={14} />Atualizar</button>
           <p className="text-xs text-[var(--ink-muted)] sm:ml-auto">{total} registro{total === 1 ? "" : "s"}</p>
         </div>
-        {loading ? <div className="grid min-h-72 place-items-center"><LoaderCircle className="animate-spin text-[var(--brand)]" /></div> : config.view === "kanban" ? <Kanban config={config} rows={rows} relations={relations} onEdit={openEdit} onStatus={updateStatus} /> : <DataTable config={config} rows={rows} relations={relations} onEdit={openEdit} onArchive={archive} />}
+        {loading ? <div className="grid min-h-72 place-items-center"><LoaderCircle className="animate-spin text-[var(--brand)]" /></div> : config.view === "kanban" ? <Kanban config={config} rows={rows} relations={relations} onEdit={openEdit} onStatus={updateStatus} onPrint={config.print ? setPrinting : undefined} /> : <DataTable config={config} rows={rows} relations={relations} onEdit={openEdit} onArchive={archive} onPrint={config.print ? setPrinting : undefined} onConvert={config.convertToWorkOrder ? (row) => void convertToOrder(row) : undefined} converting={converting} />}
         <div className="flex items-center justify-between border-t border-[var(--line)] px-4 py-3 text-xs text-[var(--ink-muted)]"><span>Página {page + 1} de {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span><div className="flex gap-1"><button disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} className="grid size-8 place-items-center border border-[var(--line)] disabled:opacity-40" aria-label="Página anterior"><ChevronLeft size={15} /></button><button disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage((value) => value + 1)} className="grid size-8 place-items-center border border-[var(--line)] disabled:opacity-40" aria-label="Próxima página"><ChevronRight size={15} /></button></div></div>
       </section>
 
       {dialogOpen && <div className="fixed inset-0 z-50 bg-black/50 sm:p-6" role="dialog" aria-modal="true" aria-label={`${editing ? "Editar" : "Novo"} ${config.singular}`} onMouseDown={(event) => event.target === event.currentTarget && !saving && setDialogOpen(false)}>
         <form onSubmit={submit} className="ml-auto flex h-full w-full max-w-2xl flex-col bg-[var(--surface)] shadow-2xl sm:rounded-sm">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4"><div><p className="text-base font-bold">{editing ? "Editar" : "Novo"} {config.singular}</p><p className="mt-0.5 text-xs text-[var(--ink-muted)]">Campos obrigatórios estão identificados.</p></div><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="p-2" aria-label="Fechar formulário"><X size={18} /></button></div>
-          <div className="grid flex-1 auto-rows-min grid-cols-1 gap-5 overflow-y-auto p-4 sm:grid-cols-2 sm:p-5">{config.fields.map((field) => { const relationTable = field.relation?.table; const quickCreate = context && relationTable && ["customers", "vehicles", "suppliers", "warehouses"].includes(relationTable) ? { context, table: relationTable as QuickCreateConfig["table"], form, relations } : null; return <Field key={field.name} field={field} value={form[field.name] ?? ""} options={relations[field.name] ?? {}} onChange={(value) => setForm((current) => ({ ...current, [field.name]: value }))} quickCreate={quickCreate} onOptionCreated={(id, label) => { setRelations((current) => ({ ...current, [field.name]: { ...(current[field.name] ?? {}), [id]: label } })); setForm((current) => ({ ...current, [field.name]: id })); }} />; })}</div>
+          <div className="grid flex-1 auto-rows-min grid-cols-1 gap-5 overflow-y-auto p-4 sm:grid-cols-2 sm:p-5">{config.fields.map((field) => { const relationTable = field.relation?.table; const quickCreate = context && relationTable && ["customers", "vehicles", "suppliers", "warehouses"].includes(relationTable) ? { context, table: relationTable as QuickCreateConfig["table"], form, relations } : null; return <Field key={field.name} field={field} value={form[field.name] ?? ""} options={relations[field.name] ?? {}} onChange={(value) => setForm((current) => ({ ...current, [field.name]: value }))} quickCreate={quickCreate} onOptionCreated={(id, label) => { setRelations((current) => ({ ...current, [field.name]: { ...(current[field.name] ?? {}), [id]: label } })); setForm((current) => ({ ...current, [field.name]: id })); }} />; })}
+          {config.items && context && (editing ? <ItemsEditor config={config.items} recordId={String(editing.id)} organizationId={context.organizationId} onChanged={() => void load()} /> : <p className="border border-dashed border-[var(--line-strong)] p-4 text-center text-xs font-normal text-[var(--ink-muted)] sm:col-span-2">Salve este {config.singular} para lançar os serviços, as peças e os valores.</p>)}</div>
           <div className="grid grid-cols-2 gap-2 border-t border-[var(--line)] p-4 sm:flex sm:justify-end"><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="h-11 border border-[var(--line)] px-4 text-sm font-semibold sm:h-10">Cancelar</button><button type="submit" disabled={saving} className="inline-flex h-11 min-w-28 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-60 sm:h-10">{saving && <LoaderCircle size={16} className="animate-spin" />}Salvar</button></div>
         </form>
       </div>}
+
+      {printing && config.print && <DocumentPrint kind={config.print} id={String(printing.id)} onClose={() => setPrinting(null)} />}
     </main>
   );
 }
 
-function DataTable({ config, rows, relations, onEdit, onArchive }: { config: ModuleConfig; rows: Row[]; relations: RelationLabels; onEdit: (row: Row) => void; onArchive: (row: Row) => void }) {
+function DataTable({ config, rows, relations, onEdit, onArchive, onPrint, onConvert, converting }: { config: ModuleConfig; rows: Row[]; relations: RelationLabels; onEdit: (row: Row) => void; onArchive: (row: Row) => void; onPrint?: (row: Row) => void; onConvert?: (row: Row) => void; converting?: boolean }) {
   if (!rows.length) return <EmptyState singular={config.singular} />;
-  return <><div className="divide-y divide-[var(--line)] md:hidden">{rows.map((row) => <article key={String(row.id)} className="p-4"><div className="grid gap-3">{config.columns.map((column, index) => <div key={column.key} className={index === 0 ? "" : "grid grid-cols-[110px_1fr] gap-3"}><span className={`${index === 0 ? "mb-1 block" : ""} text-[10px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]`}>{column.label}</span><div className={`${index === 0 ? "text-sm font-bold" : "min-w-0 text-xs"}`}>{formatValue(row[column.key], column.format, relations[column.key])}</div></div>)}</div><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => onEdit(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold text-[var(--brand)]"><Edit3 size={15} />Editar</button><button onClick={() => onArchive(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold text-[var(--danger)]"><Archive size={15} />Arquivar</button></div></article>)}</div><div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[840px] border-collapse text-left"><thead><tr className="border-b border-[var(--line)] bg-[var(--surface-muted)]">{config.columns.map((column) => <th key={column.key} className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]">{column.label}</th>)}<th className="w-24 px-4 py-3 text-right text-[11px] font-bold uppercase text-[var(--ink-muted)]">Ações</th></tr></thead><tbody className="divide-y divide-[var(--line)]">{rows.map((row) => <tr key={String(row.id)} className="hover:bg-[var(--surface-muted)]">{config.columns.map((column) => <td key={column.key} className="max-w-64 truncate px-4 py-3 text-xs">{formatValue(row[column.key], column.format, relations[column.key])}</td>)}<td className="px-4 py-2"><div className="flex justify-end gap-1"><button onClick={() => onEdit(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]" aria-label="Editar"><Edit3 size={15} /></button><button onClick={() => onArchive(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[#fff0ee] hover:text-[var(--danger)]" aria-label="Arquivar"><Archive size={15} /></button></div></td></tr>)}</tbody></table></div></>;
+  const convertible = (row: Row) => !["converted", "cancelled", "rejected", "expired"].includes(String(row.status));
+  return <><div className="divide-y divide-[var(--line)] md:hidden">{rows.map((row) => <article key={String(row.id)} className="p-4"><div className="grid gap-3">{config.columns.map((column, index) => <div key={column.key} className={index === 0 ? "" : "grid grid-cols-[110px_1fr] gap-3"}><span className={`${index === 0 ? "mb-1 block" : ""} text-[10px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]`}>{column.label}</span><div className={`${index === 0 ? "text-sm font-bold" : "min-w-0 text-xs"}`}>{formatValue(row[column.key], column.format, relations[column.key])}</div></div>)}</div><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => onEdit(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold text-[var(--brand)]"><Edit3 size={15} />Editar</button><button onClick={() => onArchive(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold text-[var(--danger)]"><Archive size={15} />Arquivar</button>{onPrint && <button onClick={() => onPrint(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold"><Printer size={15} />Imprimir PDF</button>}{onConvert && convertible(row) && <button disabled={converting} onClick={() => onConvert(row)} className="inline-flex h-10 items-center justify-center gap-2 bg-[var(--brand)] text-xs font-bold text-white disabled:opacity-60"><FileOutput size={15} />Gerar OS</button>}</div></article>)}</div><div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[840px] border-collapse text-left"><thead><tr className="border-b border-[var(--line)] bg-[var(--surface-muted)]">{config.columns.map((column) => <th key={column.key} className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]">{column.label}</th>)}<th className="w-32 px-4 py-3 text-right text-[11px] font-bold uppercase text-[var(--ink-muted)]">Ações</th></tr></thead><tbody className="divide-y divide-[var(--line)]">{rows.map((row) => <tr key={String(row.id)} className="hover:bg-[var(--surface-muted)]">{config.columns.map((column) => <td key={column.key} className="max-w-64 truncate px-4 py-3 text-xs">{formatValue(row[column.key], column.format, relations[column.key])}</td>)}<td className="px-4 py-2"><div className="flex justify-end gap-1">{onConvert && convertible(row) && <button disabled={converting} onClick={() => onConvert(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] disabled:opacity-50" aria-label="Gerar ordem de serviço" title="Gerar ordem de serviço"><FileOutput size={15} /></button>}{onPrint && <button onClick={() => onPrint(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]" aria-label="Imprimir ou salvar PDF" title="Imprimir ou salvar PDF"><Printer size={15} /></button>}<button onClick={() => onEdit(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]" aria-label="Editar" title="Editar"><Edit3 size={15} /></button><button onClick={() => onArchive(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[#fff0ee] hover:text-[var(--danger)]" aria-label="Arquivar" title="Arquivar"><Archive size={15} /></button></div></td></tr>)}</tbody></table></div></>;
 }
 
-function Kanban({ config, rows, relations, onEdit, onStatus }: { config: ModuleConfig; rows: Row[]; relations: RelationLabels; onEdit: (row: Row) => void; onStatus: (row: Row, status: string) => void }) {
+function Kanban({ config, rows, relations, onEdit, onStatus, onPrint }: { config: ModuleConfig; rows: Row[]; relations: RelationLabels; onEdit: (row: Row) => void; onStatus: (row: Row, status: string) => void; onPrint?: (row: Row) => void }) {
   const options = config.fields.find((field) => field.name === "status")?.options ?? [];
   if (!rows.length) return <EmptyState singular={config.singular} />;
-  return <div className="flex min-h-[460px] gap-3 overflow-x-auto bg-[var(--canvas)] p-3">{options.map((option) => { const items = rows.filter((row) => row.status === option.value); return <section key={option.value} className="w-64 shrink-0"><div className="mb-2 flex items-center justify-between px-1"><h3 className="text-xs font-bold">{option.label}</h3><span className="grid size-5 place-items-center rounded-full bg-[var(--line)] text-[10px] font-bold">{items.length}</span></div><div className="space-y-2">{items.map((row) => <article key={String(row.id)} className="border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm"><button onClick={() => onEdit(row)} className="w-full text-left"><div className="flex items-center justify-between"><p className="text-xs font-bold">OS {String(row.number ?? "")}</p><StatusBadge value={String(row.priority ?? "normal")} /></div><p className="mt-3 text-sm font-semibold">{relations.vehicle_id?.[String(row.vehicle_id)] ?? "Veículo"}</p><p className="mt-1 text-xs text-[var(--ink-muted)]">{relations.customer_id?.[String(row.customer_id)] ?? "Cliente"}</p><p className="mt-3 line-clamp-2 text-[11px] leading-4 text-[var(--ink-muted)]">{String(row.customer_complaint ?? "")}</p></button><select value={String(row.status)} onChange={(event) => onStatus(row, event.target.value)} className="mt-3 h-8 w-full border border-[var(--line)] bg-[var(--surface-muted)] px-2 text-[11px]" aria-label="Alterar status">{options.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></article>)}</div></section>; })}</div>;
+  return <div className="flex min-h-[460px] gap-3 overflow-x-auto bg-[var(--canvas)] p-3">{options.map((option) => { const items = rows.filter((row) => row.status === option.value); return <section key={option.value} className="w-64 shrink-0"><div className="mb-2 flex items-center justify-between px-1"><h3 className="text-xs font-bold">{option.label}</h3><span className="grid size-5 place-items-center rounded-full bg-[var(--line)] text-[10px] font-bold">{items.length}</span></div><div className="space-y-2">{items.map((row) => <article key={String(row.id)} className="border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm"><button onClick={() => onEdit(row)} className="w-full text-left"><div className="flex items-center justify-between"><p className="text-xs font-bold">OS {String(row.number ?? "")}</p><StatusBadge value={String(row.priority ?? "normal")} /></div><p className="mt-3 text-sm font-semibold">{relations.vehicle_id?.[String(row.vehicle_id)] ?? "Veículo"}</p><p className="mt-1 text-xs text-[var(--ink-muted)]">{relations.customer_id?.[String(row.customer_id)] ?? "Cliente"}</p><p className="mt-3 line-clamp-2 text-[11px] leading-4 text-[var(--ink-muted)]">{String(row.customer_complaint ?? "")}</p></button><div className="mt-3 flex gap-1.5"><select value={String(row.status)} onChange={(event) => onStatus(row, event.target.value)} className="h-8 min-w-0 flex-1 border border-[var(--line)] bg-[var(--surface-muted)] px-2 text-[11px]" aria-label="Alterar status">{options.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select>{onPrint && <button onClick={() => onPrint(row)} className="grid size-8 shrink-0 place-items-center border border-[var(--line)] text-[var(--ink-muted)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]" aria-label={`Imprimir OS ${String(row.number ?? "")}`} title="Imprimir ou salvar PDF"><Printer size={14} /></button>}</div></article>)}</div></section>; })}</div>;
 }
 
 function Field({ field, value, options, onChange, quickCreate, onOptionCreated }: { field: FieldConfig; value: string; options: Record<string, string>; onChange: (value: string) => void; quickCreate: QuickCreateConfig | null; onOptionCreated: (id: string, label: string) => void }) {
