@@ -7,7 +7,7 @@ const supplier = { table: "suppliers", labelFields: ["trade_name", "legal_name"]
 export const phaseFourModules: Record<string, ModuleConfig> = {
   "contas-receber": {
     slug: "contas-receber", table: "receivables", title: "Contas a receber", singular: "conta a receber", branchColumn: "branch_id",
-    phaseLabel: "Fase 4 • Financeiro", subtitle: "Controle vencimentos, parcelas, inadimplência e recebimentos vinculados à operação.", defaults: { number: "", status: "open" },
+    phaseLabel: "Financeiro", subtitle: "Acompanhe vencimentos, parcelas, contas atrasadas e recebimentos.", defaults: { number: "", status: "open" },
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customer },
       { name: "document", label: "Documento", type: "text" },
@@ -26,7 +26,7 @@ export const phaseFourModules: Record<string, ModuleConfig> = {
   },
   "contas-pagar": {
     slug: "contas-pagar", table: "payables", title: "Contas a pagar", singular: "conta a pagar", branchColumn: "branch_id",
-    phaseLabel: "Fase 4 • Financeiro", subtitle: "Acompanhe fornecedores, competência, vencimentos e aprovação de despesas.", defaults: { number: "", status: "pending_approval" },
+    phaseLabel: "Financeiro", subtitle: "Acompanhe fornecedores, vencimentos e a aprovação das despesas.", defaults: { number: "", status: "pending_approval" },
     fields: [
       { name: "supplier_id", label: "Fornecedor", type: "relation", relation: supplier },
       { name: "document", label: "Documento", type: "text" },
@@ -46,7 +46,7 @@ export const phaseFourModules: Record<string, ModuleConfig> = {
   },
   comissoes: {
     slug: "comissoes", table: "commission_rules", title: "Regras de comissão", singular: "regra de comissão", branchColumn: "branch_id",
-    phaseLabel: "Fase 4 • Financeiro", subtitle: "Configure comissão por serviço, produto, faturamento, lucro ou faixa de meta.",
+    phaseLabel: "Financeiro", subtitle: "Configure comissão por serviço, produto, faturamento, lucro ou faixa de meta.",
     fields: [
       { name: "name", label: "Nome da regra", type: "text", required: true, wide: true },
       { name: "basis", label: "Base", type: "select", required: true, defaultValue: "service", options: list([["service", "Serviço"], ["product", "Produto"], ["revenue", "Faturamento"], ["gross_profit", "Lucro bruto"], ["target_range", "Faixa de meta"]]) },

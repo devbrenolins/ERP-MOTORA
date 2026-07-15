@@ -7,8 +7,8 @@ const supplierRelation = { table: "suppliers", labelFields: ["trade_name", "lega
 export const phaseThreeModules: Record<string, ModuleConfig> = {
   produtos: {
     slug: "produtos", table: "products", title: "Produtos e peças", singular: "produto", branchColumn: "branch_id",
-    phaseLabel: "Fase 3 • Suprimentos e estoque",
-    subtitle: "Catálogo por SKU, código de barras, custos, preços e parâmetros de reposição.",
+    phaseLabel: "Suprimentos e estoque",
+    subtitle: "Consulte códigos, custos, preços e quando comprar mais.",
     fields: [
       { name: "sku", label: "SKU", type: "text", required: true, placeholder: "Ex.: FIL-OLEO-001" },
       { name: "barcode", label: "Código de barras", type: "text" },
@@ -29,7 +29,7 @@ export const phaseThreeModules: Record<string, ModuleConfig> = {
   },
   fornecedores: {
     slug: "fornecedores", table: "suppliers", title: "Fornecedores", singular: "fornecedor", branchColumn: "branch_id",
-    phaseLabel: "Fase 3 • Suprimentos e estoque", subtitle: "Cadastre condições comerciais, prazos e desempenho dos parceiros.",
+    phaseLabel: "Suprimentos e estoque", subtitle: "Cadastre preços, prazos e o histórico de cada fornecedor.",
     fields: [
       { name: "supplier_type", label: "Tipo", type: "select", required: true, defaultValue: "company", options: options([["company", "Pessoa jurídica"], ["individual", "Pessoa física"]]) },
       { name: "legal_name", label: "Razão social ou nome", type: "text", required: true, wide: true },
@@ -48,7 +48,7 @@ export const phaseThreeModules: Record<string, ModuleConfig> = {
   },
   compras: {
     slug: "compras", table: "purchase_orders", title: "Pedidos de compra", singular: "pedido de compra", branchColumn: "branch_id",
-    phaseLabel: "Fase 3 • Suprimentos e estoque", subtitle: "Controle aprovação, envio, previsão e recebimento de mercadorias.", defaults: { number: "" },
+    phaseLabel: "Suprimentos e estoque", subtitle: "Controle aprovação, envio, previsão e recebimento de mercadorias.", defaults: { number: "" },
     fields: [
       { name: "supplier_id", label: "Fornecedor", type: "relation", relation: supplierRelation, required: true },
       { name: "warehouse_id", label: "Depósito de destino", type: "relation", relation: warehouseRelation, required: true },
@@ -63,7 +63,7 @@ export const phaseThreeModules: Record<string, ModuleConfig> = {
   },
   inventario: {
     slug: "inventario", table: "stock_counts", title: "Inventários", singular: "inventário", branchColumn: "branch_id",
-    phaseLabel: "Fase 3 • Suprimentos e estoque", subtitle: "Organize contagens físicas e ajustes rastreáveis por depósito.", defaults: { number: "" },
+    phaseLabel: "Suprimentos e estoque", subtitle: "Conte o estoque e registre cada ajuste por depósito.", defaults: { number: "" },
     fields: [
       { name: "warehouse_id", label: "Depósito", type: "relation", relation: warehouseRelation, required: true },
       { name: "status", label: "Status", type: "select", defaultValue: "draft", options: options([["draft", "Rascunho"], ["counting", "Em contagem"], ["review", "Em conferência"], ["cancelled", "Cancelado"]]) },
@@ -74,7 +74,7 @@ export const phaseThreeModules: Record<string, ModuleConfig> = {
   },
   transferencias: {
     slug: "transferencias", table: "stock_transfers", title: "Transferências", singular: "transferência", branchColumn: "branch_id",
-    phaseLabel: "Fase 3 • Suprimentos e estoque", subtitle: "Movimente produtos entre depósitos com saída e entrada atômicas.", defaults: { number: "" },
+    phaseLabel: "Suprimentos e estoque", subtitle: "Transfira produtos entre depósitos com segurança.", defaults: { number: "" },
     fields: [
       { name: "source_warehouse_id", label: "Depósito de origem", type: "relation", relation: warehouseRelation, required: true },
       { name: "destination_warehouse_id", label: "Depósito de destino", type: "relation", relation: warehouseRelation, required: true },

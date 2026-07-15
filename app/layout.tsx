@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "Motora ERP",
       description: "Operação, financeiro, CRM, garantias, frotas, automações e BI em um só fluxo.",
       type: "website",
-      images: [{ url: `${origin}/og-phase5.png`, width: 1672, height: 941, alt: "Motora ERP - Fase 5, CRM, garantias, frotas e BI" }],
+      images: [{ url: `${origin}/og-phase5.png`, width: 1672, height: 941, alt: "Motora ERP — CRM, garantias, frotas e BI" }],
     },
     twitter: { card: "summary_large_image", title: "Motora ERP", description: "Operação, financeiro, CRM, garantias, frotas, automações e BI em um só fluxo.", images: [`${origin}/og-phase5.png`] },
   };

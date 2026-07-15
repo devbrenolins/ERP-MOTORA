@@ -37,7 +37,7 @@ const vehicleRelation = { table: "vehicles", labelFields: ["license_plate", "bra
 export const phaseTwoModules: Record<string, ModuleConfig> = {
   atendimento: {
     slug: "atendimento", table: "customer_interactions", title: "Central de atendimento",
-    subtitle: "Registre contatos, retornos e conversões do primeiro atendimento.", singular: "atendimento", branchColumn: "branch_id",
+    subtitle: "Registre contatos, retornos e o resultado de cada atendimento.", singular: "atendimento", branchColumn: "branch_id",
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation },
       { name: "vehicle_id", label: "Veículo", type: "relation", relation: vehicleRelation },
@@ -80,7 +80,7 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
     columns: [{ key: "name", label: "Cliente" }, { key: "customer_type", label: "Tipo", format: "status" }, { key: "tax_id", label: "CPF/CNPJ" }, { key: "primary_phone", label: "Telefone" }, { key: "primary_email", label: "E-mail" }, { key: "created_at", label: "Cadastro", format: "date" }],
   },
   veiculos: {
-    slug: "veiculos", table: "vehicles", title: "Veículos", subtitle: "Mantenha cadastro, quilometragem e vínculo com o cliente.", singular: "veículo", branchColumn: "branch_id",
+    slug: "veiculos", table: "vehicles", title: "Veículos", subtitle: "Consulte os veículos, a quilometragem e seus proprietários.", singular: "veículo", branchColumn: "branch_id",
     fields: [
       { name: "customer_id", label: "Proprietário", type: "relation", relation: customerRelation, required: true },
       { name: "license_plate", label: "Placa", type: "text", required: true },
@@ -96,7 +96,7 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
     columns: [{ key: "license_plate", label: "Placa" }, { key: "brand", label: "Marca" }, { key: "model", label: "Modelo" }, { key: "model_year", label: "Ano" }, { key: "customer_id", label: "Proprietário", format: "relation" }, { key: "mileage", label: "Quilometragem" }],
   },
   recepcao: {
-    slug: "recepcao", table: "work_orders", title: "Recepção e check-in", subtitle: "Registre a entrada do veículo com reclamação, prioridade e vistoria inicial.", singular: "check-in", branchColumn: "branch_id",
+    slug: "recepcao", table: "work_orders", title: "Recepção e check-in", subtitle: "Registre a entrada, o pedido do cliente, a prioridade e a primeira vistoria.", singular: "check-in", branchColumn: "branch_id",
     defaults: { number: "", status: "awaiting_triage" }, fixedFilters: { status: "awaiting_triage" },
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation, required: true },
@@ -111,7 +111,7 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
     columns: [{ key: "number", label: "Entrada" }, { key: "customer_id", label: "Cliente", format: "relation" }, { key: "vehicle_id", label: "Veículo", format: "relation" }, { key: "priority", label: "Prioridade", format: "status" }, { key: "mileage_in", label: "Km" }, { key: "entry_at", label: "Entrada", format: "datetime" }],
   },
   inspecoes: {
-    slug: "inspecoes", table: "inspections", title: "Inspeções", subtitle: "Execute checklists técnicos e registre recomendações.", singular: "inspeção", branchColumn: "branch_id",
+    slug: "inspecoes", table: "inspections", title: "Inspeções", subtitle: "Faça as inspeções e registre o que precisa ser corrigido.", singular: "inspeção", branchColumn: "branch_id",
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation, required: true },
       { name: "vehicle_id", label: "Veículo", type: "relation", relation: vehicleRelation, required: true },
@@ -123,7 +123,7 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
     columns: [{ key: "vehicle_id", label: "Veículo", format: "relation" }, { key: "customer_id", label: "Cliente", format: "relation" }, { key: "template_id", label: "Checklist", format: "relation" }, { key: "mileage", label: "Km" }, { key: "status", label: "Status", format: "status" }, { key: "created_at", label: "Criada em", format: "date" }],
   },
   orcamentos: {
-    slug: "orcamentos", table: "estimates", title: "Orçamentos", subtitle: "Prepare propostas versionadas e acompanhe a aprovação.", singular: "orçamento", branchColumn: "branch_id", defaults: { number: "" },
+    slug: "orcamentos", table: "estimates", title: "Orçamentos", subtitle: "Crie orçamentos e acompanhe a resposta do cliente.", singular: "orçamento", branchColumn: "branch_id", defaults: { number: "" },
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation, required: true },
       { name: "vehicle_id", label: "Veículo", type: "relation", relation: vehicleRelation, required: true },
@@ -137,7 +137,7 @@ export const phaseTwoModules: Record<string, ModuleConfig> = {
     columns: [{ key: "number", label: "Orçamento" }, { key: "customer_id", label: "Cliente", format: "relation" }, { key: "vehicle_id", label: "Veículo", format: "relation" }, { key: "status", label: "Status", format: "status" }, { key: "valid_until", label: "Validade", format: "date" }, { key: "total", label: "Total", format: "currency" }],
   },
   ordens: {
-    slug: "ordens", table: "work_orders", title: "Ordens de serviço", subtitle: "Acompanhe o fluxo operacional da oficina por etapa.", singular: "ordem de serviço", branchColumn: "branch_id", view: "kanban", defaults: { number: "" },
+    slug: "ordens", table: "work_orders", title: "Ordens de serviço", subtitle: "Acompanhe cada serviço desde a entrada até a entrega.", singular: "ordem de serviço", branchColumn: "branch_id", view: "kanban", defaults: { number: "" },
     fields: [
       { name: "customer_id", label: "Cliente", type: "relation", relation: customerRelation, required: true },
       { name: "vehicle_id", label: "Veículo", type: "relation", relation: vehicleRelation, required: true },

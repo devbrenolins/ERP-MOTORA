@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, LoaderCircle, Plus, ShieldCheck } from "lucide-react";
+import { KeyRound, LoaderCircle, Plus, Search, ShieldCheck } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -48,6 +48,7 @@ export function RolesModule() {
   const [description, setDescription] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -92,6 +93,7 @@ export function RolesModule() {
     }
     return map;
   }, [grants, permissionById]);
+  const filteredRoles = useMemo(() => { const term = query.trim().toLocaleLowerCase("pt-BR"); return roles.filter((role) => !term || [role.name, role.description, ...(roleKeywords[role.code] ?? [])].some((value) => String(value ?? "").toLocaleLowerCase("pt-BR").includes(term))); }, [query, roles]);
 
   const toggle = (code: string) => setSelected((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
   const submit = async (event: FormEvent) => {
@@ -109,8 +111,9 @@ export function RolesModule() {
   if (loading) return <main className="grid min-h-[60vh] place-items-center"><LoaderCircle className="animate-spin text-[var(--brand)]" /></main>;
   return <main className="p-4 sm:p-6 lg:p-8"><div className="mx-auto max-w-6xl">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">Administração</p><h1 className="mt-1 text-2xl font-bold">Cargos e acessos</h1><p className="mt-2 text-sm text-[var(--ink-muted)]">Resumo em palavras-chave e quantidade de permissões por cargo.</p></div>{canManage && <button onClick={() => setOpen(!open)} className="flex h-10 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white"><Plus size={17} />Novo cargo</button>}</div>
+    <div className="relative mt-5 max-w-md"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--brand)]" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 w-full border border-[var(--line-strong)] bg-[var(--surface)] pl-9 pr-3 text-sm outline-none focus:border-[var(--brand)]" placeholder="Buscar cargo ou permissão" aria-label="Buscar cargos" /></div>
     {error && <div role="alert" className="mt-5 border border-[#f0b4ae] bg-[#fff2f0] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
     {open && canManage && <form onSubmit={submit} className="mt-6 border border-[var(--line)] bg-[var(--surface)] p-5"><h2 className="font-bold">Criar cargo personalizado</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="text-xs font-bold">Nome<input value={name} onChange={(event) => setName(event.target.value)} className="field mt-2 w-full" placeholder="Ex.: Líder de oficina" /></label><label className="text-xs font-bold">Descrição<input value={description} onChange={(event) => setDescription(event.target.value)} className="field mt-2 w-full" placeholder="Resumo da responsabilidade" /></label></div><p className="mt-5 text-xs font-bold">Permissões</p><div className="mt-2 grid max-h-72 gap-2 overflow-y-auto border border-[var(--line)] p-3 sm:grid-cols-2 lg:grid-cols-3">{permissions.filter((permission) => permission.code !== "roles.manage").map((permission) => <label key={permission.id} className="flex gap-2 text-xs"><input type="checkbox" checked={selected.includes(permission.code)} onChange={() => toggle(permission.code)} /><span><strong>{moduleNames[permission.module] ?? permission.module}</strong><br /><span className="text-[var(--ink-muted)]">{permission.description}</span></span></label>)}</div><button disabled={saving} className="mt-4 flex h-10 items-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-60">{saving && <LoaderCircle size={16} className="animate-spin" />}Criar cargo</button></form>}
-    <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{roles.map((role) => { const rolePermissions = grantsByRole.get(role.id) ?? []; const derived = [...new Set(rolePermissions.map((permission) => moduleNames[permission.module] ?? permission.module))].slice(0, 5); const keywords = roleKeywords[role.code] ?? derived; const elevated = ["super_admin", "owner"].includes(role.code); return <article key={role.id} className="border border-[var(--line)] bg-[var(--surface)] p-5"><div className="flex items-start gap-3"><span className={`grid size-10 place-items-center ${elevated ? "bg-[var(--brand)] text-white" : "bg-[var(--brand-soft)] text-[var(--brand)]"}`}>{elevated ? <KeyRound size={18} /> : <ShieldCheck size={18} />}</span><div><h2 className="font-bold">{role.name}</h2><p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{role.description}</p></div></div><div className="mt-4 flex flex-wrap gap-1.5">{keywords.map((keyword) => <span key={keyword} className="bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-semibold">{keyword}</span>)}</div><div className="mt-4 flex items-center justify-between border-t border-[var(--line)] pt-3 text-[11px] text-[var(--ink-muted)]"><span>{rolePermissions.length} permissões</span><span>{elevated ? "Pode elevar cargos" : role.is_system ? "Cargo padrão" : "Cargo personalizado"}</span></div></article>; })}</div>
+    <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{filteredRoles.map((role) => { const rolePermissions = grantsByRole.get(role.id) ?? []; const derived = [...new Set(rolePermissions.map((permission) => moduleNames[permission.module] ?? permission.module))].slice(0, 5); const keywords = roleKeywords[role.code] ?? derived; const elevated = ["super_admin", "owner"].includes(role.code); return <article key={role.id} className="border border-[var(--line)] bg-[var(--surface)] p-5"><div className="flex items-start gap-3"><span className={`grid size-10 place-items-center ${elevated ? "bg-[var(--brand)] text-white" : "bg-[var(--brand-soft)] text-[var(--brand)]"}`}>{elevated ? <KeyRound size={18} /> : <ShieldCheck size={18} />}</span><div><h2 className="font-bold">{role.name}</h2><p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{role.description}</p></div></div><div className="mt-4 flex flex-wrap gap-1.5">{keywords.map((keyword) => <span key={keyword} className="bg-[var(--surface-muted)] px-2 py-1 text-[11px] font-semibold">{keyword}</span>)}</div><div className="mt-4 flex items-center justify-between border-t border-[var(--line)] pt-3 text-[11px] text-[var(--ink-muted)]"><span>{rolePermissions.length} permissões</span><span>{elevated ? "Pode elevar cargos" : role.is_system ? "Cargo padrão" : "Cargo personalizado"}</span></div></article>; })}</div>
   </div></main>;
 }

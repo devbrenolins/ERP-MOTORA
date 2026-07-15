@@ -150,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             return <span key={item.href} className="contents">{item.section && <span className="mt-4 block px-3 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[.14em] text-[var(--sidebar-muted)]">{item.section}</span>}<Link href={item.href} onClick={() => setSidebarOpen(false)} className={`flex h-9 items-center gap-3 px-3 text-[13px] font-medium transition ${active ? "bg-white/10 text-white" : "text-[#c3cfcc] hover:bg-white/[.06] hover:text-white"}`} aria-current={active ? "page" : undefined}><Icon size={16} />{item.label}</Link></span>;
           })}
         </nav>
-        <div className="absolute inset-x-3 bottom-3 border-t border-white/10 pt-3">
+        <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[var(--sidebar)] px-3 pb-3 pt-3 shadow-[0_-16px_24px_rgba(10,16,15,.92)]">
           <Link href="/configuracoes" className="flex h-9 items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><Settings size={16} />Configurações</Link>
           <div className="mt-2 flex items-center gap-3 px-3 py-2"><div className="grid size-8 place-items-center rounded-full bg-[#344440] text-xs font-bold">{identity.name.split(/\s+/).slice(0,2).map((part) => part[0]).join("").toUpperCase()}</div><div className="min-w-0"><p className="truncate text-xs font-semibold">{identity.name}</p><p className="truncate text-[11px] text-[var(--sidebar-muted)]">{identity.role}</p></div></div>
           <button onClick={signOut} className="flex h-9 w-full items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><LogOut size={16} />Sair</button>

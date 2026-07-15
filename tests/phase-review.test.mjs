@@ -106,3 +106,18 @@ test("segredos permanecem fora do cliente e do versionamento", async () => {
   assert.doesNotMatch(client, /SERVICE_ROLE|DB_PASSWORD|ACCESS_TOKEN/);
   assert.match(ignore, /^\.env\*/m);
 });
+
+test("a revisão de usabilidade oferece busca, cadastro rápido e mobile", async () => {
+  const operational = await readFile(new URL("components/operational-module.tsx", root), "utf8");
+  assert.match(operational, /debouncedQuery/);
+  assert.match(operational, /SmartRelationPicker/);
+  assert.match(operational, /md:hidden/);
+  assert.doesNotMatch(operational, />Fase\s+\d/);
+  const quick = await readFile(new URL("components/smart-relation-picker.tsx", root), "utf8");
+  for (const table of ["customers", "vehicles", "suppliers", "warehouses"]) assert.match(quick, new RegExp(table));
+  assert.match(quick, /Cadastrar e selecionar/);
+  const searchable = await readFile(new URL("components/searchable-select.tsx", root), "utf8");
+  assert.match(searchable, /Digite para procurar/);
+  const shell = await readFile(new URL("components/app-shell.tsx", root), "utf8");
+  assert.match(shell, /bg-\[var\(--sidebar\)\].*shadow-/);
+});

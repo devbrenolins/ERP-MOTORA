@@ -100,7 +100,7 @@ export function ErpShell() {
     : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
   return <AppShell><main className="mx-auto max-w-[1520px] px-4 py-5 lg:px-7 lg:py-6">
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">Fase 5 em operação</p><h1 className="text-2xl font-bold tracking-[-.025em]">Visão geral da oficina</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">Operação, suprimentos, financeiro e relacionamento conectados de ponta a ponta.</p></div><Link href="/recepcao" className="inline-flex h-10 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white"><Plus size={17} />Novo check-in</Link></div>
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">Oficina em operação</p><h1 className="text-2xl font-bold tracking-[-.025em]">Visão geral da oficina</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">Veja atendimento, estoque, financeiro e clientes em um só lugar.</p></div><Link href="/recepcao" className="inline-flex h-11 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white sm:h-10"><Plus size={17} />Nova entrada</Link></div>
 
     {!connected && <div className="mb-5 border border-[#d9c48c] bg-[#fff9e8] px-4 py-3 text-xs text-[#7b5a00]"><strong>Configuração necessária:</strong> conecte o Supabase para carregar indicadores e persistir os registros.</div>}
 

@@ -1,13 +1,15 @@
 "use client";
 
-import { Archive, ChevronLeft, ChevronRight, Edit3, LoaderCircle, Plus, RefreshCw, Search, X } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Archive, Check, ChevronDown, ChevronLeft, ChevronRight, Edit3, LoaderCircle, Plus, RefreshCw, Search, UserPlus, X } from "lucide-react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { FieldConfig, ModuleConfig } from "@/lib/phase-two-modules";
+import { SmartRelationPicker } from "@/components/smart-relation-picker";
 
 type Row = Record<string, unknown>;
 type Context = { organizationId: string; branchId: string; userId: string };
 type RelationLabels = Record<string, Record<string, string>>;
+type QuickCreateConfig = { context: Context; table: "customers" | "vehicles" | "suppliers" | "warehouses"; form: Record<string, string>; relations: RelationLabels };
 const PAGE_SIZE = 25;
 
 export function OperationalModule({ config }: { config: ModuleConfig }) {
@@ -20,58 +22,80 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Record<string, string>>(initialForm(config));
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const contextCache = useRef<Context | null>(null);
+  const relationsCache = useRef<RelationLabels | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sua sessão expirou. Entre novamente.");
-      const { data: profile, error: profileError } = await supabase.from("profiles").select("last_organization_id,last_branch_id").eq("id", user.id).single();
-      if (profileError) throw profileError;
-      if (!profile?.last_organization_id || !profile.last_branch_id) throw new Error("Conclua o onboarding e selecione uma filial antes de usar este módulo.");
-      const active = { organizationId: profile.last_organization_id, branchId: profile.last_branch_id, userId: user.id };
-      setContext(active);
+      let active = contextCache.current;
+      if (!active) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Sua sessão expirou. Entre novamente.");
+        const { data: profile, error: profileError } = await supabase.from("profiles").select("last_organization_id,last_branch_id").eq("id", user.id).single();
+        if (profileError) throw profileError;
+        if (!profile?.last_organization_id || !profile.last_branch_id) throw new Error("Selecione uma filial antes de usar este módulo.");
+        active = { organizationId: profile.last_organization_id, branchId: profile.last_branch_id, userId: user.id };
+        contextCache.current = active; setContext(active);
+      }
+      const relationFields = config.fields.filter((field) => field.relation);
+      let labelMaps = relationsCache.current;
+      if (!labelMaps) {
+        labelMaps = {};
+        const sources = new Map<string, NonNullable<FieldConfig["relation"]>>();
+        for (const field of relationFields) { const relation = field.relation!; sources.set(`${relation.table}:${relation.labelFields.join(",")}`, relation); }
+        const sourceMaps: Record<string, Record<string, string>> = {};
+        await Promise.all([...sources.entries()].map(async ([key, relation]) => {
+          const { data: options, error: relationError } = await supabase.from(relation.table).select(["id", ...relation.labelFields].join(",")).eq("organization_id", active.organizationId).is("deleted_at", null).limit(500);
+          if (relationError) throw relationError;
+          sourceMaps[key] = Object.fromEntries(((options ?? []) as unknown as Row[]).map((option) => [String(option.id), relation.labelFields.map((fieldName) => option[fieldName]).filter(Boolean).join(" • ")]));
+        }));
+        for (const field of relationFields) { const relation = field.relation!; labelMaps[field.name] = sourceMaps[`${relation.table}:${relation.labelFields.join(",")}`] ?? {}; }
+        relationsCache.current = labelMaps; setRelations(labelMaps);
+      }
 
       let request = supabase.from(config.table).select("*", { count: "exact" }).eq("organization_id", active.organizationId).is("deleted_at", null);
       for (const [key, value] of Object.entries(config.fixedFilters ?? {})) request = request.eq(key, value);
+      const term = debouncedQuery.trim().replace(/[%_,()]/g, "");
+      if (term.length >= 2) {
+        const clauses = config.fields
+          .filter((field) => ["text", "textarea", "select"].includes(field.type))
+          .map((field) => `${field.name}.ilike.%${term}%`);
+        for (const field of relationFields) {
+          const matchingIds = Object.entries(labelMaps[field.name] ?? {})
+            .filter(([, label]) => label.toLocaleLowerCase("pt-BR").includes(term.toLocaleLowerCase("pt-BR")))
+            .map(([id]) => id);
+          if (matchingIds.length) clauses.push(`${field.name}.in.(${matchingIds.join(",")})`);
+        }
+        if (clauses.length) request = request.or(clauses.join(","));
+      }
       const { data, error: rowsError, count } = await request.order("created_at", { ascending: false }).range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (rowsError) throw rowsError;
       setRows((data ?? []) as Row[]); setTotal(count ?? 0);
-
-      const relationFields = config.fields.filter((field) => field.relation);
-      const labelMaps: RelationLabels = {};
-      await Promise.all(relationFields.map(async (field) => {
-        const relation = field.relation!;
-        const { data: options } = await supabase.from(relation.table).select(["id", ...relation.labelFields].join(",")).eq("organization_id", active.organizationId).is("deleted_at", null).limit(500);
-        labelMaps[field.name] = Object.fromEntries(((options ?? []) as unknown as Row[]).map((option) => [String(option.id), relation.labelFields.map((key) => option[key]).filter(Boolean).join(" • ")]));
-      }));
-      setRelations(labelMaps);
     } catch (caught) {
       setRows([]); setTotal(0);
       setError(caught instanceof Error && caught.message === "Supabase não configurado." ? "Conecte o projeto Supabase e aplique as migrations para ativar este módulo." : caught instanceof Error ? caught.message : "Não foi possível carregar os dados.");
     } finally { setLoading(false); }
-  }, [config, page]);
+  }, [config, debouncedQuery, page]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setPage(0); setDebouncedQuery(query); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const filteredRows = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("pt-BR");
-    if (!normalized) return rows;
-    return rows.filter((row) => config.columns.some((column) => {
-      const raw = row[column.key];
-      const value = column.format === "relation" ? relations[column.key]?.[String(raw)] : raw;
-      return String(value ?? "").toLocaleLowerCase("pt-BR").includes(normalized);
-    }));
-  }, [config.columns, query, relations, rows]);
+  useEffect(() => { relationsCache.current = relations; }, [relations]);
 
   const openNew = () => { setEditing(null); setForm(initialForm(config)); setDialogOpen(true); };
   const openEdit = (row: Row) => {
@@ -87,7 +111,11 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
     try {
       const supabase = createClient();
       const values: Record<string, unknown> = { ...(config.defaults ?? {}) };
-      for (const field of config.fields) values[field.name] = serializeValue(form[field.name] ?? "", field);
+      for (const field of config.fields) {
+        const rawValue = form[field.name] ?? "";
+        if (field.required && rawValue === "") throw new Error(`Preencha o campo ${field.label.toLocaleLowerCase("pt-BR")}.`);
+        values[field.name] = serializeValue(rawValue, field);
+      }
       if (typeof values.tax_id === "string") values.tax_id = values.tax_id.replace(/\D/g, "") || null;
       if (typeof values.license_plate === "string") values.license_plate = values.license_plate.toUpperCase().replace(/[^A-Z0-9]/g, "");
       if (editing) {
@@ -139,7 +167,7 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   return (
     <main className="mx-auto max-w-[1520px] px-4 py-5 lg:px-7 lg:py-6">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">{config.phaseLabel ?? "Fase 2 • Operação principal"}</p><h1 className="text-2xl font-bold tracking-[-.025em]">{config.title}</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">{config.subtitle}</p></div>
+        <div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">{moduleArea(config)}</p><h1 className="text-2xl font-bold tracking-[-.025em]">{config.title}</h1><p className="mt-1 max-w-3xl text-sm text-[var(--ink-muted)]">{config.subtitle}</p></div>
         <div className="flex flex-wrap gap-2">{config.action && <button disabled={runningAction} onClick={() => void runModuleAction()} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--brand)] px-4 text-sm font-bold text-[var(--brand)] disabled:opacity-50"><RefreshCw size={16} className={runningAction ? "animate-spin" : ""} />{config.action.label}</button>}<button onClick={openNew} className="inline-flex h-10 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white hover:bg-[var(--brand-strong)]"><Plus size={17} />Novo {config.singular}</button></div>
       </div>
 
@@ -148,19 +176,19 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
 
       <section className="border border-[var(--line)] bg-[var(--surface)]">
         <div className="flex flex-col gap-3 border-b border-[var(--line)] p-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1 sm:max-w-sm"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" /><input value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 w-full border border-[var(--line)] bg-[var(--surface-muted)] pl-9 pr-3 text-xs outline-none focus:border-[var(--brand)]" placeholder={`Pesquisar em ${config.title.toLocaleLowerCase("pt-BR")}`} /></div>
+          <div className="relative flex-1 sm:max-w-md"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--brand)]" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} className="h-10 w-full border border-[var(--line-strong)] bg-[var(--surface)] pl-9 pr-9 text-sm outline-none focus:border-[var(--brand)]" placeholder={`Buscar ${config.singular}, cliente, código ou status`} aria-label={`Buscar em ${config.title}`} />{query && <button type="button" onClick={() => setQuery("")} className="absolute right-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center text-[var(--ink-muted)]" aria-label="Limpar busca"><X size={15} /></button>}</div>
           <button onClick={() => void load()} className="inline-flex h-9 items-center justify-center gap-2 border border-[var(--line)] px-3 text-xs font-semibold"><RefreshCw size={14} />Atualizar</button>
           <p className="text-xs text-[var(--ink-muted)] sm:ml-auto">{total} registro{total === 1 ? "" : "s"}</p>
         </div>
-        {loading ? <div className="grid min-h-72 place-items-center"><LoaderCircle className="animate-spin text-[var(--brand)]" /></div> : config.view === "kanban" ? <Kanban config={config} rows={filteredRows} relations={relations} onEdit={openEdit} onStatus={updateStatus} /> : <DataTable config={config} rows={filteredRows} relations={relations} onEdit={openEdit} onArchive={archive} />}
+        {loading ? <div className="grid min-h-72 place-items-center"><LoaderCircle className="animate-spin text-[var(--brand)]" /></div> : config.view === "kanban" ? <Kanban config={config} rows={rows} relations={relations} onEdit={openEdit} onStatus={updateStatus} /> : <DataTable config={config} rows={rows} relations={relations} onEdit={openEdit} onArchive={archive} />}
         <div className="flex items-center justify-between border-t border-[var(--line)] px-4 py-3 text-xs text-[var(--ink-muted)]"><span>Página {page + 1} de {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span><div className="flex gap-1"><button disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))} className="grid size-8 place-items-center border border-[var(--line)] disabled:opacity-40" aria-label="Página anterior"><ChevronLeft size={15} /></button><button disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage((value) => value + 1)} className="grid size-8 place-items-center border border-[var(--line)] disabled:opacity-40" aria-label="Próxima página"><ChevronRight size={15} /></button></div></div>
       </section>
 
-      {dialogOpen && <div className="fixed inset-0 z-50 bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={`${editing ? "Editar" : "Novo"} ${config.singular}`} onMouseDown={(event) => event.target === event.currentTarget && !saving && setDialogOpen(false)}>
-        <form onSubmit={submit} className="ml-auto flex h-full w-full max-w-2xl flex-col bg-[var(--surface)] shadow-2xl">
+      {dialogOpen && <div className="fixed inset-0 z-50 bg-black/50 sm:p-6" role="dialog" aria-modal="true" aria-label={`${editing ? "Editar" : "Novo"} ${config.singular}`} onMouseDown={(event) => event.target === event.currentTarget && !saving && setDialogOpen(false)}>
+        <form onSubmit={submit} className="ml-auto flex h-full w-full max-w-2xl flex-col bg-[var(--surface)] shadow-2xl sm:rounded-sm">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4"><div><p className="text-base font-bold">{editing ? "Editar" : "Novo"} {config.singular}</p><p className="mt-0.5 text-xs text-[var(--ink-muted)]">Campos obrigatórios estão identificados.</p></div><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="p-2" aria-label="Fechar formulário"><X size={18} /></button></div>
-          <div className="grid flex-1 auto-rows-min grid-cols-1 gap-5 overflow-y-auto p-5 sm:grid-cols-2">{config.fields.map((field) => <Field key={field.name} field={field} value={form[field.name] ?? ""} options={relations[field.name] ?? {}} onChange={(value) => setForm((current) => ({ ...current, [field.name]: value }))} />)}</div>
-          <div className="flex justify-end gap-2 border-t border-[var(--line)] p-4"><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="h-10 border border-[var(--line)] px-4 text-sm font-semibold">Cancelar</button><button type="submit" disabled={saving} className="inline-flex h-10 min-w-28 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-60">{saving && <LoaderCircle size={16} className="animate-spin" />}Salvar</button></div>
+          <div className="grid flex-1 auto-rows-min grid-cols-1 gap-5 overflow-y-auto p-4 sm:grid-cols-2 sm:p-5">{config.fields.map((field) => { const relationTable = field.relation?.table; const quickCreate = context && relationTable && ["customers", "vehicles", "suppliers", "warehouses"].includes(relationTable) ? { context, table: relationTable as QuickCreateConfig["table"], form, relations } : null; return <Field key={field.name} field={field} value={form[field.name] ?? ""} options={relations[field.name] ?? {}} onChange={(value) => setForm((current) => ({ ...current, [field.name]: value }))} quickCreate={quickCreate} onOptionCreated={(id, label) => { setRelations((current) => ({ ...current, [field.name]: { ...(current[field.name] ?? {}), [id]: label } })); setForm((current) => ({ ...current, [field.name]: id })); }} />; })}</div>
+          <div className="grid grid-cols-2 gap-2 border-t border-[var(--line)] p-4 sm:flex sm:justify-end"><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="h-11 border border-[var(--line)] px-4 text-sm font-semibold sm:h-10">Cancelar</button><button type="submit" disabled={saving} className="inline-flex h-11 min-w-28 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-60 sm:h-10">{saving && <LoaderCircle size={16} className="animate-spin" />}Salvar</button></div>
         </form>
       </div>}
     </main>
@@ -169,7 +197,7 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
 
 function DataTable({ config, rows, relations, onEdit, onArchive }: { config: ModuleConfig; rows: Row[]; relations: RelationLabels; onEdit: (row: Row) => void; onArchive: (row: Row) => void }) {
   if (!rows.length) return <EmptyState singular={config.singular} />;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[840px] border-collapse text-left"><thead><tr className="border-b border-[var(--line)] bg-[var(--surface-muted)]">{config.columns.map((column) => <th key={column.key} className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]">{column.label}</th>)}<th className="w-24 px-4 py-3 text-right text-[11px] font-bold uppercase text-[var(--ink-muted)]">Ações</th></tr></thead><tbody className="divide-y divide-[var(--line)]">{rows.map((row) => <tr key={String(row.id)} className="hover:bg-[var(--surface-muted)]">{config.columns.map((column) => <td key={column.key} className="max-w-64 truncate px-4 py-3 text-xs">{formatValue(row[column.key], column.format, relations[column.key])}</td>)}<td className="px-4 py-2"><div className="flex justify-end gap-1"><button onClick={() => onEdit(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]" aria-label="Editar"><Edit3 size={15} /></button><button onClick={() => onArchive(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[#fff0ee] hover:text-[var(--danger)]" aria-label="Arquivar"><Archive size={15} /></button></div></td></tr>)}</tbody></table></div>;
+  return <><div className="divide-y divide-[var(--line)] md:hidden">{rows.map((row) => <article key={String(row.id)} className="p-4"><div className="grid gap-3">{config.columns.map((column, index) => <div key={column.key} className={index === 0 ? "" : "grid grid-cols-[110px_1fr] gap-3"}><span className={`${index === 0 ? "mb-1 block" : ""} text-[10px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]`}>{column.label}</span><div className={`${index === 0 ? "text-sm font-bold" : "min-w-0 text-xs"}`}>{formatValue(row[column.key], column.format, relations[column.key])}</div></div>)}</div><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => onEdit(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold text-[var(--brand)]"><Edit3 size={15} />Editar</button><button onClick={() => onArchive(row)} className="inline-flex h-10 items-center justify-center gap-2 border border-[var(--line)] text-xs font-bold text-[var(--danger)]"><Archive size={15} />Arquivar</button></div></article>)}</div><div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[840px] border-collapse text-left"><thead><tr className="border-b border-[var(--line)] bg-[var(--surface-muted)]">{config.columns.map((column) => <th key={column.key} className="whitespace-nowrap px-4 py-3 text-[11px] font-bold uppercase tracking-[.06em] text-[var(--ink-muted)]">{column.label}</th>)}<th className="w-24 px-4 py-3 text-right text-[11px] font-bold uppercase text-[var(--ink-muted)]">Ações</th></tr></thead><tbody className="divide-y divide-[var(--line)]">{rows.map((row) => <tr key={String(row.id)} className="hover:bg-[var(--surface-muted)]">{config.columns.map((column) => <td key={column.key} className="max-w-64 truncate px-4 py-3 text-xs">{formatValue(row[column.key], column.format, relations[column.key])}</td>)}<td className="px-4 py-2"><div className="flex justify-end gap-1"><button onClick={() => onEdit(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]" aria-label="Editar"><Edit3 size={15} /></button><button onClick={() => onArchive(row)} className="grid size-8 place-items-center text-[var(--ink-muted)] hover:bg-[#fff0ee] hover:text-[var(--danger)]" aria-label="Arquivar"><Archive size={15} /></button></div></td></tr>)}</tbody></table></div></>;
 }
 
 function Kanban({ config, rows, relations, onEdit, onStatus }: { config: ModuleConfig; rows: Row[]; relations: RelationLabels; onEdit: (row: Row) => void; onStatus: (row: Row, status: string) => void }) {
@@ -178,9 +206,35 @@ function Kanban({ config, rows, relations, onEdit, onStatus }: { config: ModuleC
   return <div className="flex min-h-[460px] gap-3 overflow-x-auto bg-[var(--canvas)] p-3">{options.map((option) => { const items = rows.filter((row) => row.status === option.value); return <section key={option.value} className="w-64 shrink-0"><div className="mb-2 flex items-center justify-between px-1"><h3 className="text-xs font-bold">{option.label}</h3><span className="grid size-5 place-items-center rounded-full bg-[var(--line)] text-[10px] font-bold">{items.length}</span></div><div className="space-y-2">{items.map((row) => <article key={String(row.id)} className="border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm"><button onClick={() => onEdit(row)} className="w-full text-left"><div className="flex items-center justify-between"><p className="text-xs font-bold">OS {String(row.number ?? "")}</p><StatusBadge value={String(row.priority ?? "normal")} /></div><p className="mt-3 text-sm font-semibold">{relations.vehicle_id?.[String(row.vehicle_id)] ?? "Veículo"}</p><p className="mt-1 text-xs text-[var(--ink-muted)]">{relations.customer_id?.[String(row.customer_id)] ?? "Cliente"}</p><p className="mt-3 line-clamp-2 text-[11px] leading-4 text-[var(--ink-muted)]">{String(row.customer_complaint ?? "")}</p></button><select value={String(row.status)} onChange={(event) => onStatus(row, event.target.value)} className="mt-3 h-8 w-full border border-[var(--line)] bg-[var(--surface-muted)] px-2 text-[11px]" aria-label="Alterar status">{options.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></article>)}</div></section>; })}</div>;
 }
 
-function Field({ field, value, options, onChange }: { field: FieldConfig; value: string; options: Record<string, string>; onChange: (value: string) => void }) {
+function Field({ field, value, options, onChange, quickCreate, onOptionCreated }: { field: FieldConfig; value: string; options: Record<string, string>; onChange: (value: string) => void; quickCreate: QuickCreateConfig | null; onOptionCreated: (id: string, label: string) => void }) {
   const className = "mt-2 h-10 w-full border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-sm outline-none focus:border-[var(--brand)]";
-  return <label className={`text-xs font-bold ${field.wide ? "sm:col-span-2" : ""}`}>{field.type === "checkbox" ? <span className="flex h-10 items-center gap-3 border border-[var(--line-strong)] px-3"><input type="checkbox" checked={value === "true"} onChange={(event) => onChange(String(event.target.checked))} className="size-4 accent-[var(--brand)]" />{field.label}</span> : <>{field.label}{field.required && <span className="ml-1 text-[var(--danger)]">*</span>}{field.type === "textarea" ? <textarea required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={`${className} h-24 py-2`} placeholder={field.placeholder} /> : field.type === "select" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : field.type === "relation" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{Object.entries(options).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select> : <input required={field.required} type={field.type === "datetime" ? "datetime-local" : field.type} value={value} onChange={(event) => onChange(event.target.value)} className={className} placeholder={field.placeholder} />}</>}</label>;
+  if (field.type === "relation") return <SmartRelationPicker field={field} value={value} options={options} onChange={onChange} quickCreate={quickCreate} onOptionCreated={onOptionCreated} />;
+  return <label className={`text-xs font-bold ${field.wide ? "sm:col-span-2" : ""}`}>{field.type === "checkbox" ? <span className="flex min-h-10 items-center gap-3 border border-[var(--line-strong)] px-3 py-2"><input type="checkbox" checked={value === "true"} onChange={(event) => onChange(String(event.target.checked))} className="size-4 accent-[var(--brand)]" />{field.label}</span> : <>{field.label}{field.required && <span className="ml-1 text-[var(--danger)]">*</span>}{field.type === "textarea" ? <textarea required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={`${className} h-24 py-2`} placeholder={field.placeholder} /> : field.type === "select" ? <select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={className}><option value="">Selecione</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input required={field.required} type={field.type === "datetime" ? "datetime-local" : field.type} value={value} onChange={(event) => onChange(event.target.value)} className={className} placeholder={field.placeholder} />}</>}</label>;
+}
+
+export function RelationPicker({ field, value, options, onChange, quickCustomer, onOptionCreated }: { field: FieldConfig; value: string; options: Record<string, string>; onChange: (value: string) => void; quickCustomer: Context | null; onOptionCreated: (id: string, label: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [quick, setQuick] = useState({ name: "", phone: "", taxId: "", email: "" });
+  const [quickError, setQuickError] = useState<string | null>(null);
+  const normalized = term.trim().toLocaleLowerCase("pt-BR");
+  const matches = Object.entries(options).filter(([, label]) => !normalized || label.toLocaleLowerCase("pt-BR").includes(normalized)).slice(0, 100);
+
+  const createCustomer = async () => {
+    if (!quickCustomer || !quick.name.trim()) { setQuickError("Informe o nome do cliente."); return; }
+    setSaving(true); setQuickError(null);
+    try {
+      const { data, error } = await createClient().from("customers").insert({ organization_id: quickCustomer.organizationId, primary_branch_id: quickCustomer.branchId, customer_type: "individual", name: quick.name.trim(), primary_phone: quick.phone.trim() || null, tax_id: quick.taxId.replace(/\D/g, "") || null, primary_email: quick.email.trim() || null, created_by: quickCustomer.userId, updated_by: quickCustomer.userId }).select("id,name,primary_phone").single();
+      if (error) throw error;
+      const label = [data.name, data.primary_phone].filter(Boolean).join(" • ");
+      onOptionCreated(data.id, label); setCreating(false); setOpen(false); setQuick({ name: "", phone: "", taxId: "", email: "" });
+    } catch (caught) { setQuickError(caught instanceof Error ? caught.message : "Não foi possível cadastrar o cliente."); }
+    finally { setSaving(false); }
+  };
+
+  return <div className={`${field.wide ? "sm:col-span-2" : ""} relative text-xs font-bold`}><span>{field.label}{field.required && <span className="ml-1 text-[var(--danger)]">*</span>}</span><button type="button" onClick={() => setOpen((current) => !current)} className="mt-2 flex h-10 w-full items-center gap-2 border border-[var(--line-strong)] bg-[var(--surface)] px-3 text-left text-sm font-normal outline-none focus:border-[var(--brand)]" aria-haspopup="listbox" aria-expanded={open}><Search size={15} className="text-[var(--brand)]" /><span className={`min-w-0 flex-1 truncate ${value ? "" : "text-[var(--ink-muted)]"}`}>{value ? options[value] ?? "Cadastro selecionado" : `Buscar ${field.label.toLocaleLowerCase("pt-BR")}`}</span><ChevronDown size={15} /></button>{open && <div className="absolute inset-x-0 z-30 mt-1 border border-[var(--line-strong)] bg-[var(--surface)] p-2 shadow-xl"><div className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-muted)]" /><input autoFocus value={term} onChange={(event) => setTerm(event.target.value)} className="h-10 w-full border border-[var(--line)] bg-[var(--surface-muted)] pl-9 pr-3 text-sm font-normal outline-none focus:border-[var(--brand)]" placeholder="Digite para procurar" /></div><div className="mt-2 max-h-48 overflow-y-auto" role="listbox">{matches.map(([id, label]) => <button key={id} type="button" onClick={() => { onChange(id); setOpen(false); setTerm(""); }} className="flex min-h-10 w-full items-center gap-2 border-b border-[var(--line)] px-2 py-2 text-left text-xs font-normal last:border-0 hover:bg-[var(--surface-muted)]"><span className="min-w-0 flex-1">{label}</span>{value === id && <Check size={15} className="text-[var(--brand)]" />}</button>)}{!matches.length && <p className="p-4 text-center font-normal text-[var(--ink-muted)]">Nenhum cadastro encontrado.</p>}</div>{quickCustomer && <button type="button" onClick={() => { setCreating(true); setOpen(false); }} className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 border border-[var(--brand)] text-xs font-bold text-[var(--brand)]"><UserPlus size={15} />Cadastrar cliente sem sair do orçamento</button>}</div>}{creating && <div className="mt-3 border border-[var(--brand)] bg-[var(--brand-soft)] p-3"><div className="flex items-center justify-between"><p className="font-bold">Novo cliente</p><button type="button" onClick={() => setCreating(false)} className="p-1" aria-label="Fechar cadastro rápido"><X size={15} /></button></div><p className="mt-1 font-normal text-[var(--ink-muted)]">Cadastre os dados básicos e continue o orçamento.</p><div className="mt-3 grid gap-2 sm:grid-cols-2"><input value={quick.name} onChange={(event) => setQuick((current) => ({ ...current, name: event.target.value }))} className="h-10 border border-[var(--line-strong)] bg-[var(--surface)] px-3 font-normal" placeholder="Nome completo *" /><input value={quick.phone} onChange={(event) => setQuick((current) => ({ ...current, phone: event.target.value }))} className="h-10 border border-[var(--line-strong)] bg-[var(--surface)] px-3 font-normal" placeholder="Telefone" /><input value={quick.taxId} onChange={(event) => setQuick((current) => ({ ...current, taxId: event.target.value }))} className="h-10 border border-[var(--line-strong)] bg-[var(--surface)] px-3 font-normal" placeholder="CPF ou CNPJ" /><input type="email" value={quick.email} onChange={(event) => setQuick((current) => ({ ...current, email: event.target.value }))} className="h-10 border border-[var(--line-strong)] bg-[var(--surface)] px-3 font-normal" placeholder="E-mail" /></div>{quickError && <p className="mt-2 text-[var(--danger)]">{quickError}</p>}<div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setCreating(false)} className="h-9 border border-[var(--line)] px-3">Cancelar</button><button type="button" disabled={saving} onClick={() => void createCustomer()} className="inline-flex h-9 items-center gap-2 bg-[var(--brand)] px-3 text-white disabled:opacity-60">{saving && <LoaderCircle size={14} className="animate-spin" />}Cadastrar e selecionar</button></div></div>}</div>;
 }
 
 function EmptyState({ singular }: { singular: string }) { return <div className="grid min-h-72 place-items-center px-5 py-10 text-center"><div><div className="mx-auto grid size-10 place-items-center rounded-full bg-[var(--surface-muted)] text-[var(--ink-muted)]"><Plus size={18} /></div><h3 className="mt-3 text-sm font-bold">Nenhum {singular} cadastrado</h3><p className="mt-1 text-xs text-[var(--ink-muted)]">Use a ação principal para criar o primeiro registro.</p></div></div>; }
@@ -191,3 +245,4 @@ function inputValue(value: unknown, field: FieldConfig) { if (value == null) ret
 function serializeValue(value: string, field: FieldConfig): unknown { if (field.type === "checkbox") return value === "true"; if (value === "") return null; if (field.type === "number") return Number(value); if (field.type === "datetime") return new Date(value).toISOString(); return value; }
 function formatValue(value: unknown, format?: string, relation?: Record<string, string>) { if (value == null || value === "") return "—"; if (format === "relation") return relation?.[String(value)] ?? "—"; if (format === "currency") return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value)); if (format === "date") return new Intl.DateTimeFormat("pt-BR").format(new Date(String(value))); if (format === "datetime") return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(String(value))); if (format === "status") return <StatusBadge value={String(value)} />; return String(value); }
 function statusLabel(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function moduleArea(config: ModuleConfig) { return (config.phaseLabel ?? "Operação principal").replace(/^Fase\s+\d+\s*•?\s*/i, "") || "Operação"; }
