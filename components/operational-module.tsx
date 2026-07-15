@@ -153,6 +153,8 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
       const supabase = createClient();
       const { error: statusError } = await supabase.from(config.table).update({ status, updated_by: context.userId }).eq("id", String(row.id));
       if (statusError) throw statusError;
+      // Mudança de status de OS enfileira avisos ao cliente; o worker envia em segundo plano.
+      if (config.table === "work_orders") void fetch("/api/notifications/process", { method: "POST" }).catch(() => undefined);
       await load();
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível alterar o status."); }
   };

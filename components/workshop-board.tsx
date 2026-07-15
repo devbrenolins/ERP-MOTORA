@@ -13,6 +13,7 @@ import {
 } from "@/lib/workshop";
 import { ServiceProgress, ServiceTimeline, type TimelineEvent } from "@/components/service-progress";
 import { DocumentPrint } from "@/components/document-print";
+import { WhatsAppConnect } from "@/components/whatsapp-connect";
 
 type Context = { organizationId: string; branchId: string; userId: string };
 type BoardRow = {
@@ -134,6 +135,9 @@ export function WorkshopBoard() {
       const { error: statusError } = await supabase.from("work_orders").update(patch).eq("id", row.id);
       if (statusError) throw statusError;
       setSelected((current) => current && current.id === row.id ? { ...current, status } : current);
+      // Dispara o worker de avisos em segundo plano: mensagens enfileiradas pelo
+      // gatilho de status saem na hora, sem esperar o próximo ciclo agendado.
+      void fetch("/api/notifications/process", { method: "POST" }).catch(() => undefined);
     } catch (caught) {
       setRows(previous);
       setError(caught instanceof Error ? caught.message : "Não foi possível alterar o status.");
@@ -506,6 +510,7 @@ function NotificationSettingsDialog({ context, onClose }: { context: Context; on
                 </label>
               ); })}
             </div>
+            <WhatsAppConnect />
             <p className="mt-3 text-[11px] text-[var(--ink-muted)]">Os avisos entram em uma fila de envio auditável. Somente administradores alteram estas preferências.</p>
             <div className="mt-4 flex justify-end gap-2">
               <button disabled={saving} onClick={onClose} className="h-10 border border-[var(--line)] px-4 text-sm font-semibold">Cancelar</button>

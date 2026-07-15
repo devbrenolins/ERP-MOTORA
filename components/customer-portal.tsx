@@ -110,11 +110,12 @@ export function CustomerPortal() {
 
       <section className="mt-6 grid gap-4 md:grid-cols-3">
         {data.vehicles.map((vehicle) => (
-          <article key={vehicle.id} className="border border-[var(--line)] bg-[var(--surface)] p-5">
-            <Wrench size={18} className="text-[var(--brand)]" />
-            <p className="mt-3 text-lg font-bold tracking-wide">{vehicle.plate}</p>
-            <p className="text-sm text-[var(--ink-muted)]">{vehicle.brand} {vehicle.model}{vehicle.color ? ` • ${vehicle.color}` : ""}</p>
-            <p className="mt-3 text-xs">{Number(vehicle.mileage).toLocaleString("pt-BR")} km</p>
+          <article key={vehicle.id} className="border border-[var(--line)] border-t-4 border-t-[var(--brand)] bg-[var(--surface)] p-5 transition hover:shadow-md">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]"><Wrench size={18} /></span>
+              <div><p className="text-lg font-bold tracking-wide">{vehicle.plate}</p><p className="text-sm text-[var(--ink-muted)]">{vehicle.brand} {vehicle.model}{vehicle.color ? ` • ${vehicle.color}` : ""}</p></div>
+            </div>
+            <p className="mt-3 border-t border-[var(--line)] pt-3 text-xs text-[var(--ink-muted)]"><strong className="text-[var(--ink)]">{Number(vehicle.mileage).toLocaleString("pt-BR")} km</strong> registrados</p>
           </article>
         ))}
       </section>
@@ -177,9 +178,12 @@ function OrderCard({ order, token, onError }: { order: Order; token: string; onE
   };
 
   return (
-    <article className="border-b border-[var(--line)] p-5 last:border-0">
+    <article className="border-b border-[var(--line)] p-5 last:border-0" style={{ background: GROUP_META[group].row, borderLeft: `4px solid ${GROUP_META[group].accent}` }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="font-bold">OS {order.number}</p><p className="mt-1 text-xs text-[var(--ink-muted)]">{order.complaint}</p></div>
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full text-white" style={{ background: GROUP_META[group].accent }}><Wrench size={17} /></span>
+          <div><p className="font-bold">OS {order.number}</p><p className="mt-1 text-xs text-[var(--ink-muted)]">{order.complaint}</p></div>
+        </div>
         <span className="rounded-full px-3 py-1 text-[10px] font-bold text-white" style={{ background: GROUP_META[group].accent }}>{order.status_label ?? statusLabel(order.status)}</span>
       </div>
 
@@ -197,13 +201,13 @@ function OrderCard({ order, token, onError }: { order: Order; token: string; onE
 
       {(services.length > 0 || parts.length > 0) && (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {services.length > 0 && <div><p className="text-xs font-bold">Serviços contratados</p><div className="mt-1 divide-y divide-[var(--line)] border-y border-[var(--line)]">{services.map((item) => <div key={item.id} className="flex justify-between gap-3 py-1.5 text-xs"><span>{item.description}</span><span>{money(item.total)}</span></div>)}</div></div>}
-          {parts.length > 0 && <div><p className="text-xs font-bold">Peças trocadas</p><div className="mt-1 divide-y divide-[var(--line)] border-y border-[var(--line)]">{parts.map((item) => <div key={item.id} className="flex justify-between gap-3 py-1.5 text-xs"><span>{item.description} × {item.quantity}{item.warranty_days ? ` • garantia ${item.warranty_days} dias` : ""}</span><span>{money(item.total)}</span></div>)}</div></div>}
+          {services.length > 0 && <div className="border border-[var(--line)] bg-[var(--surface)] p-3"><p className="text-xs font-bold">Serviços contratados</p><div className="mt-1 divide-y divide-[var(--line)]">{services.map((item) => <div key={item.id} className="flex justify-between gap-3 py-1.5 text-xs"><span>{item.description}</span><span>{money(item.total)}</span></div>)}</div></div>}
+          {parts.length > 0 && <div className="border border-[var(--line)] bg-[var(--surface)] p-3"><p className="text-xs font-bold">Peças trocadas</p><div className="mt-1 divide-y divide-[var(--line)]">{parts.map((item) => <div key={item.id} className="flex justify-between gap-3 py-1.5 text-xs"><span>{item.description} × {item.quantity}{item.warranty_days ? ` • garantia ${item.warranty_days} dias` : ""}</span><span>{money(item.total)}</span></div>)}</div></div>}
         </div>
       )}
 
       {order.events.length > 0 && (
-        <details className="mt-4 border border-[var(--line)]" open>
+        <details className="mt-4 border border-[var(--line)] bg-[var(--surface)]" open>
           <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-xs font-bold"><History size={14} className="text-[var(--brand)]" />Linha do tempo do serviço</summary>
           <div className="px-4 pb-4"><ServiceTimeline events={order.events} /></div>
         </details>
@@ -214,7 +218,7 @@ function OrderCard({ order, token, onError }: { order: Order; token: string; onE
           <p className="flex items-center gap-2 text-xs font-bold"><ImageIcon size={14} className="text-[var(--brand)]" />Fotos do veículo (antes e depois)</p>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {order.photos.map((photo) => (
-              <a key={photo.id} href={publicUrl(photo.path)} target="_blank" rel="noreferrer" className="group border border-[var(--line)]">
+              <a key={photo.id} href={publicUrl(photo.path)} target="_blank" rel="noreferrer" className="group border border-[var(--line)] bg-[var(--surface)]">
                 {/* eslint-disable-next-line @next/next/no-img-element -- mídia externa do Supabase Storage */}
                 <img src={publicUrl(photo.path)} alt={photo.caption ?? `Foto ${STAGE_LABELS[photo.stage] ?? photo.stage}`} loading="lazy" className="aspect-square w-full object-cover transition group-hover:opacity-90" />
                 <span className="block px-2 py-1 text-[10px] font-bold text-[var(--ink-muted)]">{STAGE_LABELS[photo.stage] ?? photo.stage}{photo.caption ? ` • ${photo.caption}` : ""}</span>
@@ -229,7 +233,7 @@ function OrderCard({ order, token, onError }: { order: Order; token: string; onE
           <p className="flex items-center gap-2 text-xs font-bold"><Paperclip size={14} className="text-[var(--brand)]" />Arquivos e documentos</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {order.attachments.map((attachment) => (
-              <a key={attachment.id} href={publicUrl(attachment.path)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 border border-[var(--line)] px-3 py-2 text-xs font-semibold transition hover:border-[var(--brand)] hover:text-[var(--brand)]">
+              <a key={attachment.id} href={publicUrl(attachment.path)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold transition hover:border-[var(--brand)] hover:text-[var(--brand)]">
                 <FileText size={14} />{KIND_LABELS[attachment.kind] ?? attachment.kind}{attachment.kind !== "service_order_pdf" && attachment.kind !== "invoice_pdf" ? ` — ${attachment.file_name}` : ""}
               </a>
             ))}
@@ -247,7 +251,7 @@ function OrderCard({ order, token, onError }: { order: Order; token: string; onE
         <div className="mt-4 border-t border-[var(--line)] pt-4">
           <p className="text-xs font-bold">Avalie o atendimento</p>
           <div className="mt-2 flex gap-1">{[1, 2, 3, 4, 5].map((value) => <button key={value} onClick={() => setRating(value)} aria-label={`${value} estrelas`}><Star size={20} className={value <= rating ? "fill-[#d69b20] text-[#d69b20]" : "text-[var(--line-strong)]"} /></button>)}</div>
-          {rating > 0 && <div className="mt-3 flex gap-2"><input value={comment} onChange={(event) => setComment(event.target.value)} className="h-9 min-w-0 flex-1 border border-[var(--line)] px-3 text-xs" placeholder="Comentário opcional" /><button disabled={sending} onClick={() => void sendRating()} className="bg-[var(--brand)] px-4 text-xs font-bold text-white">Enviar</button></div>}
+          {rating > 0 && <div className="mt-3 flex gap-2"><input value={comment} onChange={(event) => setComment(event.target.value)} className="h-9 min-w-0 flex-1 border border-[var(--line)] bg-[var(--surface)] px-3 text-xs" placeholder="Comentário opcional" /><button disabled={sending} onClick={() => void sendRating()} className="bg-[var(--brand)] px-4 text-xs font-bold text-white">Enviar</button></div>}
         </div>
       )}
     </article>
@@ -306,7 +310,7 @@ function PortalFrame({ children, onSignOut }: { children: React.ReactNode; onSig
 }
 
 function Section({ title, icon: Icon, children }: { title: string; icon: typeof Wrench; children: React.ReactNode }) {
-  return <section className="mt-6 border border-[var(--line)] bg-[var(--surface)]"><div className="flex items-center gap-2 border-b border-[var(--line)] px-5 py-4"><Icon size={17} className="text-[var(--brand)]" /><h2 className="font-bold">{title}</h2></div>{children}</section>;
+  return <section className="mt-6 overflow-hidden border border-[var(--line)] bg-[var(--surface)]"><div className="flex items-center gap-3 border-b border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4"><span className="grid size-8 shrink-0 place-items-center bg-[var(--brand-soft)] text-[var(--brand)]"><Icon size={16} /></span><h2 className="font-bold">{title}</h2></div>{children}</section>;
 }
 
 function StatusChip({ value }: { value: string }) {

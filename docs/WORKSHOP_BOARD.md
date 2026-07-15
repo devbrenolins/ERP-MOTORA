@@ -93,5 +93,24 @@ Todas as tabelas novas têm RLS baseada em `has_permission` herdada da OS corres
 2. Gatilho `log_work_order_activity` grava o evento na timeline (com usuário e horário) e, se o
    status estiver na lista configurada, enfileira mensagens nos canais habilitados em
    `customer_notifications`.
-3. O worker de integração (WhatsApp/SMS/e-mail) consome a fila e marca `sent`/`failed`.
+3. O worker (`app/api/notifications/process/route.ts`) consome a fila e marca `sent`/`failed`.
 4. O drawer da OS mostra os avisos enviados e o portal reflete o novo status em até 20 s.
+
+## Worker de envio e WhatsApp (Evolution API v2.3)
+
+- **Worker**: `POST /api/notifications/process` roda sob demanda (disparado em segundo plano a cada
+  troca de status no painel e no kanban de OS, escopado à organização do usuário) e `GET` roda pelo
+  Vercel Cron a cada 5 minutos (`vercel.json`), autenticado por `Authorization: Bearer CRON_SECRET`.
+  Cada mensagem é "reivindicada" com update condicional (`status='pending'` → `sent`) para impedir
+  envio duplicado; falhas voltam para `failed` com o erro registrado.
+- **WhatsApp**: `lib/whatsapp/evolution.ts` (marcado `server-only`) fala com a Evolution API v2.3 —
+  criação de instância por filial (`motora-{branchId}`), QR code de pareamento, estado da conexão,
+  logout e `sendText`. `EVOLUTION_API_URL` e `EVOLUTION_API_KEY` existem apenas no ambiente do
+  servidor; o navegador conversa exclusivamente com `/api/whatsapp` (GET status, POST conectar/QR,
+  DELETE desconectar), que exige `notifications.manage`. A conexão é registrada em
+  `integration_connections` (sem segredos) para auditoria no módulo Integrações.
+- **Interface**: no painel, botão "Notificações" → seção "Número de envio (WhatsApp)"
+  (`components/whatsapp-connect.tsx`): gera o QR code, mostra o código de pareamento, faz polling do
+  estado a cada 4 s até conectar e permite desconectar o número.
+- **E-mail**: enviado via Resend quando `RESEND_API_KEY` e `EMAIL_FROM` estiverem definidos.
+- **SMS**: estrutura pronta — mensagens marcam `failed` com aviso claro até a integração ser plugada.
