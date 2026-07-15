@@ -47,6 +47,8 @@ const navigation = [
   { href: "/bi", label: "BI", icon: BarChart3 },
   { href: "/integracoes", label: "Integrações", icon: Plug },
   { href: "/notificacoes", label: "Notificações", icon: Bell, section: "Administração" },
+  { href: "/empresas", label: "Empresas clientes", icon: Building2 },
+  { href: "/usuarios", label: "Usuários", icon: UserRoundCheck },
   { href: "/perfis", label: "Cargos e acessos", icon: ShieldCheck },
   { href: "/auditoria", label: "Auditoria", icon: Activity },
   { href: "/privacidade", label: "Privacidade e LGPD", icon: UserRoundCheck },
