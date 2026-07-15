@@ -46,6 +46,8 @@ test("a conclusão da Fase 5 cobre administração, recuperação e LGPD", async
   assert.match(roles, /'Superadmin'/);
   const rolesModule = await readFile(new URL("components/roles-module.tsx", root), "utf8");
   assert.match(rolesModule, /Pode elevar cargos/);
+  const shell = await readFile(new URL("components/app-shell.tsx", root), "utf8");
+  assert.match(shell, /auth\.signOut/);
 
   const review = await readFile(new URL("supabase/migrations/20260714253000_phase_five_completion_review.sql", root), "utf8");
   assert.match(review, /revoke truncate,references,trigger/);

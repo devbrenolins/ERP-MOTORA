@@ -3,10 +3,10 @@
 import {
   ArrowLeftRight, Bell, Boxes, Building2, CalendarDays, CarFront, ChevronDown, ClipboardCheck,
   ClipboardList, Command, FileText, Gauge, Menu, PackageSearch, Search, Settings, ShieldCheck,
-  Activity, BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, Plug, ReceiptText, RefreshCw, ShoppingCart, SlidersHorizontal, Target, Truck, UserRoundCheck, Users, WalletCards, Warehouse, Wrench, X,
+  Activity, BarChart3, Banknote, Bot, CircleDollarSign, KeyRound, Landmark, LogOut, Plug, ReceiptText, RefreshCw, ShoppingCart, SlidersHorizontal, Target, Truck, UserRoundCheck, Users, WalletCards, Warehouse, Wrench, X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationCenter } from "@/components/notification-center";
@@ -57,6 +57,7 @@ type SearchResult = { id: string; title: string; subtitle: string; href: string 
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -124,6 +125,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     } catch { setResults([]); } finally { setSearching(false); }
   };
 
+  const signOut = async () => {
+    await createClient().auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  };
+
   const current = navigation.find((item) => item.href === pathname)?.label ?? "Operação";
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--ink)]">
@@ -146,6 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="absolute inset-x-3 bottom-3 border-t border-white/10 pt-3">
           <Link href="/configuracoes" className="flex h-9 items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><Settings size={16} />Configurações</Link>
           <div className="mt-2 flex items-center gap-3 px-3 py-2"><div className="grid size-8 place-items-center rounded-full bg-[#344440] text-xs font-bold">{identity.name.split(/\s+/).slice(0,2).map((part) => part[0]).join("").toUpperCase()}</div><div className="min-w-0"><p className="truncate text-xs font-semibold">{identity.name}</p><p className="truncate text-[11px] text-[var(--sidebar-muted)]">{identity.role}</p></div></div>
+          <button onClick={signOut} className="flex h-9 w-full items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><LogOut size={16} />Sair</button>
         </div>
       </aside>
       {sidebarOpen && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-black/45 lg:hidden" onClick={() => setSidebarOpen(false)} />}
