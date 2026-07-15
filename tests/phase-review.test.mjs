@@ -21,6 +21,7 @@ test("todas as migrations são transacionais", async () => {
     "supabase/migrations/20260714253000_phase_five_completion_review.sql",
     "supabase/migrations/20260714254500_phase_five_global_privilege_review.sql",
     "supabase/migrations/20260714255000_phase_five_least_privilege_review.sql",
+    "supabase/migrations/20260714260000_go_live_roles.sql",
   ];
   for (const file of files) {
     const sql = (await readFile(new URL(file, root), "utf8")).trim().toLowerCase();
@@ -36,7 +37,15 @@ test("a conclusão da Fase 5 cobre administração, recuperação e LGPD", async
   assert.match(proxy, /recover-password/);
   assert.match(proxy, /reset-password/);
   const login = await readFile(new URL("components/login-form.tsx", root), "utf8");
-  assert.match(login, /href="\/recover-password"/);
+  assert.match(login, /href="\/login\?mode=recover"/);
+  const roles = await readFile(new URL("supabase/migrations/20260714260000_go_live_roles.sql", root), "utf8");
+  for (const code of ["super_admin", "manager", "administrative", "service_advisor", "mechanic", "stockkeeper", "buyer", "financial", "cashier", "salesperson", "auditor"]) assert.match(roles, new RegExp(`'${code}'`));
+  assert.match(roles, /enforce_exclusive_role_management/);
+  assert.match(roles, /create_custom_role/);
+  assert.match(roles, /'Dev Admin'/);
+  assert.match(roles, /'Superadmin'/);
+  const rolesModule = await readFile(new URL("components/roles-module.tsx", root), "utf8");
+  assert.match(rolesModule, /Pode elevar cargos/);
 
   const review = await readFile(new URL("supabase/migrations/20260714253000_phase_five_completion_review.sql", root), "utf8");
   assert.match(review, /revoke truncate,references,trigger/);

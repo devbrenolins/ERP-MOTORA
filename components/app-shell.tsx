@@ -47,6 +47,7 @@ const navigation = [
   { href: "/bi", label: "BI", icon: BarChart3 },
   { href: "/integracoes", label: "Integrações", icon: Plug },
   { href: "/notificacoes", label: "Notificações", icon: Bell, section: "Administração" },
+  { href: "/perfis", label: "Cargos e acessos", icon: ShieldCheck },
   { href: "/auditoria", label: "Auditoria", icon: Activity },
   { href: "/privacidade", label: "Privacidade e LGPD", icon: UserRoundCheck },
   { href: "/configuracoes", label: "Configurações", icon: SlidersHorizontal },
@@ -61,6 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [identity, setIdentity] = useState({ name: "Usuário", role: "Acesso protegido" });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -71,6 +73,28 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const loadIdentity = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const [{ data: profile }, { data: assignments }] = await Promise.all([
+          supabase.from("profiles").select("full_name,last_organization_id").eq("id", user.id).single(),
+          supabase.from("user_roles").select("role_id").eq("user_id", user.id),
+        ]);
+        const roleIds = (assignments ?? []).map((assignment) => assignment.role_id);
+        const { data: roles } = roleIds.length ? await supabase.from("roles").select("code,name").in("id", roleIds).is("deleted_at", null) : { data: [] };
+        const priority = ["super_admin", "owner", "administrator", "manager", "administrative"];
+        const rank = (code: string) => { const index = priority.indexOf(code); return index < 0 ? priority.length : index; };
+        const selectedRole = [...(roles ?? [])].sort((a, b) => rank(a.code) - rank(b.code))[0];
+        setIdentity({ name: profile?.full_name || user.email || "Usuário", role: selectedRole?.name || "Acesso protegido" });
+      } catch { /* Mantém o rótulo seguro quando o perfil não puder ser carregado. */ }
+    };
+    const timer = window.setTimeout(() => void loadIdentity(), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const runSearch = async (event: FormEvent) => {
@@ -121,7 +145,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         <div className="absolute inset-x-3 bottom-3 border-t border-white/10 pt-3">
           <Link href="/configuracoes" className="flex h-9 items-center gap-3 px-3 text-[13px] text-[#c3cfcc] hover:bg-white/[.06]"><Settings size={16} />Configurações</Link>
-          <div className="mt-2 flex items-center gap-3 px-3 py-2"><div className="grid size-8 place-items-center rounded-full bg-[#344440] text-xs font-bold">AD</div><div><p className="text-xs font-semibold">Administrador</p><p className="text-[11px] text-[var(--sidebar-muted)]">Sessão protegida</p></div></div>
+          <div className="mt-2 flex items-center gap-3 px-3 py-2"><div className="grid size-8 place-items-center rounded-full bg-[#344440] text-xs font-bold">{identity.name.split(/\s+/).slice(0,2).map((part) => part[0]).join("").toUpperCase()}</div><div className="min-w-0"><p className="truncate text-xs font-semibold">{identity.name}</p><p className="truncate text-[11px] text-[var(--sidebar-muted)]">{identity.role}</p></div></div>
         </div>
       </aside>
       {sidebarOpen && <button aria-label="Fechar menu" className="fixed inset-0 z-30 bg-black/45 lg:hidden" onClick={() => setSidebarOpen(false)} />}

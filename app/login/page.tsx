@@ -1,18 +1,28 @@
 import type { Metadata } from "next";
-import { LoginForm } from "@/components/login-form";
 import { Wrench } from "lucide-react";
+import { LoginForm } from "@/components/login-form";
+import { PasswordRecoveryForm } from "@/components/password-recovery-form";
+import { PasswordResetForm } from "@/components/password-reset-form";
 
-export const metadata: Metadata = { title: "Entrar" };
+type LoginPageProps = { searchParams: Promise<{ mode?: string }> };
 
-export default function LoginPage() {
+export async function generateMetadata({ searchParams }: LoginPageProps): Promise<Metadata> {
+  const mode = (await searchParams).mode;
+  return { title: mode === "recover" ? "Recuperar senha" : mode === "reset" ? "Redefinir senha" : "Entrar" };
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const mode = (await searchParams).mode;
+  const isRecovery = mode === "recover";
+  const isReset = mode === "reset";
   return (
     <main className="grid min-h-screen bg-[var(--surface)] lg:grid-cols-[1fr_1.12fr]">
       <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-10">
         <div className="w-full max-w-[390px]">
           <div className="mb-10 flex items-center gap-3"><span className="grid size-10 place-items-center bg-[var(--brand)] text-white"><Wrench size={19} /></span><div><p className="text-base font-bold tracking-tight">MOTORA</p><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[var(--ink-muted)]">ERP Automotivo</p></div></div>
-          <h1 className="text-2xl font-bold tracking-[-.03em]">Acesse sua oficina</h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">Entre com as credenciais vinculadas à sua empresa.</p>
-          <LoginForm />
+          <h1 className="text-2xl font-bold tracking-[-.03em]">{isRecovery ? "Recuperar senha" : isReset ? "Criar nova senha" : "Acesse sua oficina"}</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">{isRecovery ? "Enviaremos um link temporário para o e-mail cadastrado." : isReset ? "Use uma senha exclusiva com pelo menos oito caracteres." : "Entre com as credenciais vinculadas à sua empresa."}</p>
+          {isRecovery ? <PasswordRecoveryForm /> : isReset ? <PasswordResetForm /> : <LoginForm />}
           <p className="mt-8 text-center text-xs text-[var(--ink-muted)]">O acesso é protegido e todas as ações relevantes são auditadas.</p>
         </div>
       </section>

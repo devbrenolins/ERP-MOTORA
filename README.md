@@ -42,7 +42,8 @@ A Fase 5 acrescenta:
 - RLS, escopo multiempresa/multifilial, auditoria e revisão regressiva das cinco fases.
 - central de notificações operacionais, recuperação de senha e administração de configurações;
 - exportação e anonimização LGPD com bloqueios transacionais e trilha de auditoria;
-- seed separado para demonstração e checklist final de implantação.
+- seed separado para demonstração e checklist final de implantação;
+- go-live com Dev Admin, Superadmin, Gerente e Administrativo, tela de cargos com palavras-chave e criação protegida de perfis personalizados.
 
 ## Desenvolvimento
 
