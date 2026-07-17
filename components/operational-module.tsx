@@ -99,7 +99,9 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  useEffect(() => { relationsCache.current = relations; }, [relations]);
+  // O cache usa null como sentinela de "ainda não carregado"; sincronizar o estado
+  // inicial vazio a trocaria por {} (truthy) e o load() pularia as relações.
+  useEffect(() => { if (Object.keys(relations).length) relationsCache.current = relations; }, [relations]);
 
   const openNew = () => { setEditing(null); setForm(initialForm(config)); setDialogOpen(true); };
   const openEdit = (row: Row) => {

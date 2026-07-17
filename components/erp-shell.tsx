@@ -43,17 +43,21 @@ type Metrics = {
   accountBalance: number | null;
 };
 
+type Setup = "loading" | "ready" | "unconfigured" | "signedOut" | "noOrganization" | "failed";
+
 export function ErpShell() {
   const [metrics, setMetrics] = useState<Metrics>({ customers: null, appointments: null, workOrders: null, estimates: null, lowStock: null, purchases: null, receivableOpen: null, payableOpen: null, accountBalance: null });
-  const [connected, setConnected] = useState(false);
+  const [setup, setSetup] = useState<Setup>("loading");
   useEffect(() => {
     const load = async () => {
+      let supabase: ReturnType<typeof createClient>;
+      try { supabase = createClient(); } catch { setSetup("unconfigured"); return; }
       try {
-        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data: profile } = await supabase.from("profiles").select("last_organization_id,last_branch_id").eq("id", user.id).single();
-        if (!profile?.last_organization_id || !profile.last_branch_id) return;
+        if (!user) { setSetup("signedOut"); return; }
+        const { data: profile, error: profileError } = await supabase.from("profiles").select("last_organization_id,last_branch_id").eq("id", user.id).single();
+        if (profileError) throw profileError;
+        if (!profile?.last_organization_id || !profile.last_branch_id) { setSetup("noOrganization"); return; }
         const org = profile.last_organization_id; const branch = profile.last_branch_id;
         const [customers, appointments, orders, estimates, stock, purchases, financial] = await Promise.all([
           supabase.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", org).is("deleted_at", null),
@@ -64,6 +68,8 @@ export function ErpShell() {
           supabase.from("purchase_orders").select("id", { count: "exact", head: true }).eq("organization_id", org).eq("branch_id", branch).in("status", ["pending_approval", "approved", "sent", "partial"]).is("deleted_at", null),
           supabase.from("financial_overview").select("receivable_open,payable_open,account_balance").eq("organization_id", org).eq("branch_id", branch).maybeSingle(),
         ]);
+        const failure = customers.error ?? appointments.error ?? orders.error ?? estimates.error ?? stock.error ?? purchases.error ?? financial.error;
+        if (failure) throw failure;
         setMetrics({
           customers: customers.count ?? 0,
           appointments: appointments.count ?? 0,
@@ -75,8 +81,8 @@ export function ErpShell() {
           payableOpen: Number(financial.data?.payable_open ?? 0),
           accountBalance: Number(financial.data?.account_balance ?? 0),
         });
-        setConnected(true);
-      } catch { setConnected(false); }
+        setSetup("ready");
+      } catch { setSetup("failed"); }
     };
     void load();
   }, []);
@@ -103,7 +109,10 @@ export function ErpShell() {
   return <AppShell><main className="mx-auto max-w-[1520px] px-4 py-5 lg:px-7 lg:py-6">
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="mb-1 text-[11px] font-bold uppercase tracking-[.14em] text-[var(--brand)]">Oficina em operação</p><h1 className="text-2xl font-bold tracking-[-.025em]">Visão geral da oficina</h1><p className="mt-1 text-sm text-[var(--ink-muted)]">Veja atendimento, estoque, financeiro e clientes em um só lugar.</p></div><Link href="/recepcao" className="inline-flex h-11 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white sm:h-10"><Plus size={17} />Nova entrada</Link></div>
 
-    {!connected && <div className="mb-5 border border-[#d9c48c] bg-[#fff9e8] px-4 py-3 text-xs text-[#7b5a00]"><strong>Configuração necessária:</strong> conecte o Supabase para carregar indicadores e persistir os registros.</div>}
+    {setup === "unconfigured" && <div className="mb-5 border border-[#d9c48c] bg-[#fff9e8] px-4 py-3 text-xs text-[#7b5a00]"><strong>Configuração necessária:</strong> conecte o Supabase para carregar indicadores e persistir os registros.</div>}
+    {setup === "signedOut" && <div className="mb-5 border border-[#d9c48c] bg-[#fff9e8] px-4 py-3 text-xs text-[#7b5a00]"><strong>Sessão expirada:</strong> <Link href="/login" className="underline">entre novamente</Link> para carregar os indicadores.</div>}
+    {setup === "noOrganization" && <div className="mb-5 border border-[#d9c48c] bg-[#fff9e8] px-4 py-3 text-xs text-[#7b5a00]"><strong>Empresa não vinculada:</strong> seu usuário ainda não está ligado a uma empresa e filial, por isso nenhum cadastro aparece. <Link href="/onboarding" className="underline">Conclua a configuração inicial</Link>.</div>}
+    {setup === "failed" && <div className="mb-5 border border-[#f0b4ae] bg-[#fff2f0] px-4 py-3 text-xs text-[var(--danger)]"><strong>Falha ao carregar:</strong> não foi possível ler os indicadores. Verifique suas permissões de acesso e tente novamente.</div>}
 
     <section className="grid gap-px border border-[var(--line)] bg-[var(--line)] sm:grid-cols-2 xl:grid-cols-6">{cards.map(([label, value, helper]) => <article key={label} className="bg-[var(--surface)] p-5"><p className="text-xs font-semibold text-[var(--ink-muted)]">{label}</p><p className="mt-3 text-2xl font-bold">{value ?? "—"}</p><p className="mt-2 text-[11px] text-[var(--ink-muted)]">{helper}</p></article>)}</section>
 
