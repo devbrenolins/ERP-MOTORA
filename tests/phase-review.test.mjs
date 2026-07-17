@@ -118,6 +118,10 @@ test("a revisão de usabilidade oferece busca, cadastro rápido e mobile", async
   assert.match(quick, /Cadastrar e selecionar/);
   const searchable = await readFile(new URL("components/searchable-select.tsx", root), "utf8");
   assert.match(searchable, /Digite para procurar/);
+  const portalAccess = await readFile(new URL("components/portal-access-manager.tsx", root), "utf8");
+  assert.match(portalAccess, /SearchableSelect/);
+  assert.match(portalAccess, /Buscar cliente ou OS/);
+  assert.match(portalAccess, /order:/);
   const shell = await readFile(new URL("components/app-shell.tsx", root), "utf8");
   assert.match(shell, /bg-\[var\(--sidebar\)\].*shadow-/);
 });
