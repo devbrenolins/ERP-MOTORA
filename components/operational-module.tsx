@@ -5,7 +5,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client";
 import type { FieldConfig, ModuleConfig } from "@/lib/phase-two-modules";
 import { SmartRelationPicker } from "@/components/smart-relation-picker";
-import { ItemsEditor } from "@/components/items-editor";
+import { ItemsEditor, type DraftItem } from "@/components/items-editor";
 import { DocumentPrint } from "@/components/document-print";
 
 type Row = Record<string, unknown>;
@@ -28,6 +28,7 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Record<string, string>>(initialForm(config));
+  const [pendingItems, setPendingItems] = useState<DraftItem[]>([]);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [printing, setPrinting] = useState<Row | null>(null);
@@ -103,10 +104,11 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
   // inicial vazio a trocaria por {} (truthy) e o load() pularia as relações.
   useEffect(() => { if (Object.keys(relations).length) relationsCache.current = relations; }, [relations]);
 
-  const openNew = () => { setEditing(null); setForm(initialForm(config)); setDialogOpen(true); };
+  const openNew = () => { setEditing(null); setForm(initialForm(config)); setPendingItems([]); setDialogOpen(true); };
   const openEdit = (row: Row) => {
     setEditing(row);
     setForm(Object.fromEntries(config.fields.map((field) => [field.name, inputValue(row[field.name], field)])));
+    setPendingItems([]);
     setDialogOpen(true);
   };
 
@@ -131,10 +133,22 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
         if (saveError) throw saveError;
       } else {
         const scope = { organization_id: context.organizationId, ...(config.branchColumn ? { [config.branchColumn]: context.branchId } : {}), updated_by: context.userId };
-        const { error: saveError } = await supabase.from(config.table).insert({ ...values, ...scope, created_by: context.userId });
+        const { data: created, error: saveError } = await supabase.from(config.table).insert({ ...values, ...scope, created_by: context.userId }).select("id").single();
         if (saveError) throw saveError;
+        if (config.items && pendingItems.length) {
+          const { table: itemsTable, foreignKey } = config.items;
+          const { error: itemsError } = await supabase.from(itemsTable).insert(pendingItems.map((item, index) => ({
+            organization_id: context.organizationId, [foreignKey]: created.id, ...item, sort_order: index,
+          })));
+          // O documento já existe: reabrir o formulário faria um novo Salvar duplicá-lo.
+          if (itemsError) {
+            setPendingItems([]); setDialogOpen(false); await load();
+            setError(`O ${config.singular} foi salvo, mas os itens não foram lançados: ${itemsError.message}. Abra o registro para concluir.`);
+            return;
+          }
+        }
       }
-      setDialogOpen(false); await load();
+      setPendingItems([]); setDialogOpen(false); await load();
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Não foi possível salvar o registro."); }
     finally { setSaving(false); }
   };
@@ -224,7 +238,9 @@ export function OperationalModule({ config }: { config: ModuleConfig }) {
         <form onSubmit={submit} className="ml-auto flex h-full w-full max-w-2xl flex-col bg-[var(--surface)] shadow-2xl sm:rounded-sm">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4"><div><p className="text-base font-bold">{editing ? "Editar" : "Novo"} {config.singular}</p><p className="mt-0.5 text-xs text-[var(--ink-muted)]">Campos obrigatórios estão identificados.</p></div><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="p-2" aria-label="Fechar formulário"><X size={18} /></button></div>
           <div className="grid flex-1 auto-rows-min grid-cols-1 gap-5 overflow-y-auto p-4 sm:grid-cols-2 sm:p-5">{config.fields.map((field) => { const relationTable = field.relation?.table; const quickCreate = context && relationTable && ["customers", "vehicles", "suppliers", "warehouses"].includes(relationTable) ? { context, table: relationTable as QuickCreateConfig["table"], form, relations } : null; return <Field key={field.name} field={field} value={form[field.name] ?? ""} options={relations[field.name] ?? {}} onChange={(value) => setForm((current) => ({ ...current, [field.name]: value }))} quickCreate={quickCreate} onOptionCreated={(id, label) => { setRelations((current) => ({ ...current, [field.name]: { ...(current[field.name] ?? {}), [id]: label } })); setForm((current) => ({ ...current, [field.name]: id })); }} />; })}
-          {config.items && context && (editing ? <ItemsEditor config={config.items} recordId={String(editing.id)} organizationId={context.organizationId} onChanged={() => void load()} /> : <p className="border border-dashed border-[var(--line-strong)] p-4 text-center text-xs font-normal text-[var(--ink-muted)] sm:col-span-2">Salve este {config.singular} para lançar os serviços, as peças e os valores.</p>)}</div>
+          {config.items && context && <ItemsEditor config={config.items} mode={editing
+            ? { kind: "persisted", recordId: String(editing.id), organizationId: context.organizationId, onChanged: () => void load() }
+            : { kind: "draft", items: pendingItems, onChange: setPendingItems }} />}</div>
           <div className="grid grid-cols-2 gap-2 border-t border-[var(--line)] p-4 sm:flex sm:justify-end"><button type="button" disabled={saving} onClick={() => setDialogOpen(false)} className="h-11 border border-[var(--line)] px-4 text-sm font-semibold sm:h-10">Cancelar</button><button type="submit" disabled={saving} className="inline-flex h-11 min-w-28 items-center justify-center gap-2 bg-[var(--brand)] px-4 text-sm font-bold text-white disabled:opacity-60 sm:h-10">{saving && <LoaderCircle size={16} className="animate-spin" />}Salvar</button></div>
         </form>
       </div>}
